@@ -1,0 +1,25 @@
+{
+  "name": "aegis",
+  "private": true,
+  "dependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "catalog:",
+    "oxc-transform-react": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "latest"
+  },
+  "devEngines": {
+    "packageManager": [
+      {
+        "name": "pnpm",
+        "version": "11.26.0",
+        "onFail": "download"
+      }
+    ]
+  }
+}
