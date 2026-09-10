@@ -1,8 +1,12 @@
-import { defineConfig } from "vite-plus";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   plugins: [react({ compiler: true })],
+  fmt: {
+    ignorePatterns: ["src/wasm/**/*", "src/api/**/*"],
+    sortImports: true,
+  },
   run: {
     tasks: {
       "run:backend": {
