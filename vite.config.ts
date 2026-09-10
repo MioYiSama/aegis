@@ -12,6 +12,9 @@ export default defineConfig({
       "run:backend": {
         command: "cargo run -p aegis-backend --bin server",
       },
+      openapi: {
+        command: ["cargo run -p aegis-backend --bin openapi", "orval"],
+      },
       "build:wasm": {
         command: [
           "cargo build -p aegis-wasm --profile aegis-wasm-release --target wasm32-unknown-unknown",

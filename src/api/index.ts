@@ -5,23 +5,23 @@
  * OpenAPI spec version: 0.0.0
  */
 import {
-  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
-  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
-  UseMutationOptions,
-  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
+
+import type {
+  User
+} from './index.schemas';
 
 
 
@@ -42,17 +42,17 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export type getUserResponseDefault = {
-  data: unknown
-  status: number
+export type getUserResponse200 = {
+  data: User
+  status: 200
 }
 
-;
-export type getUserResponseError = (getUserResponseDefault) & {
+export type getUserResponseSuccess = (getUserResponse200) & {
   headers: Headers;
 };
+;
 
-export type getUserResponse = (getUserResponseError)
+export type getUserResponse = (getUserResponseSuccess)
 
 export const getGetUserUrl = () => {
 
@@ -155,178 +155,4 @@ export function useGetUser<TData = Awaited<ReturnType<typeof getUser>>, TError =
 
 
 
-
-export type postUserResponseDefault = {
-  data: unknown
-  status: number
-}
-
-;
-export type postUserResponseError = (postUserResponseDefault) & {
-  headers: Headers;
-};
-
-export type postUserResponse = (postUserResponseError)
-
-export const getPostUserUrl = () => {
-
-
-
-
-  return `/user`
-}
-
-export const postUser = async ( options?: RequestInit): Promise<postUserResponse> => {
-
-  const res = await fetch(getPostUserUrl(),
-  {
-    ...options,
-    method: 'POST'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: postUserResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as postUserResponse
-}
-
-
-
-
-
-export const getPostUserMutationKey = () => ['postUser'] as const;
-
-export const getPostUserMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUser>>, TError,void, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof postUser>>, TError,void, TContext> => {
-
-const mutationKey = getPostUserMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postUser>>, void> = () => {
-
-
-          return  postUser(fetchOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostUserMutationResult = NonNullable<Awaited<ReturnType<typeof postUser>>>
-
-    export type PostUserMutationError = unknown
-
-
-    export const usePostUser = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUser>>, TError,void, TContext>, fetch?: RequestInit}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postUser>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getPostUserMutationOptions(options), queryClient);
-    }
-
-export type deleteUserResponseDefault = {
-  data: unknown
-  status: number
-}
-
-;
-export type deleteUserResponseError = (deleteUserResponseDefault) & {
-  headers: Headers;
-};
-
-export type deleteUserResponse = (deleteUserResponseError)
-
-export const getDeleteUserUrl = () => {
-
-
-
-
-  return `/user`
-}
-
-export const deleteUser = async ( options?: RequestInit): Promise<deleteUserResponse> => {
-
-  const res = await fetch(getDeleteUserUrl(),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-)
-
-
-  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
-
-  const data: deleteUserResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as deleteUserResponse
-}
-
-
-
-
-
-export const getDeleteUserMutationKey = () => ['deleteUser'] as const;
-
-export const getDeleteUserMutationOptions = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,void, TContext>, fetch?: RequestInit}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,void, TContext> => {
-
-const mutationKey = getDeleteUserMutationKey();
-const {mutation: mutationOptions, fetch: fetchOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, fetch: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUser>>, void> = () => {
-
-
-          return  deleteUser(fetchOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteUserMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUser>>>
-
-    export type DeleteUserMutationError = unknown
-
-
-    export const useDeleteUser = <TError = unknown,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUser>>, TError,void, TContext>, fetch?: RequestInit}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteUser>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getDeleteUserMutationOptions(options), queryClient);
-    }
 

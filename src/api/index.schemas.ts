@@ -4,3 +4,7 @@
  * aegis-backend
  * OpenAPI spec version: 0.0.0
  */
+export interface User {
+  id: number;
+}
+
