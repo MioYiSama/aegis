@@ -4,5 +4,6 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
+aegis-core = { path = "../core" }
 axum.workspace = true
 tokio.workspace = true

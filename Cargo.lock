@@ -6,14 +6,20 @@ version = 4
 name = "aegis-backend"
 version = "0.0.0"
 dependencies = [
+ "aegis-core",
  "axum",
  "tokio",
 ]
 
 [[package]]
+name = "aegis-core"
+version = "0.0.0"
+
+[[package]]
 name = "aegis-wasm"
 version = "0.0.0"
 dependencies = [
+ "aegis-core",
  "wasm-bindgen",
 ]
 

@@ -7,4 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
+aegis-core = { path = "../core" }
 wasm-bindgen.workspace = true

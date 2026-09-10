@@ -7,5 +7,6 @@ extern "C" {
 
 #[wasm_bindgen]
 pub fn greet(name: &str) {
+    aegis_core::f();
     alert(&format!("Hello, {name}!"));
 }
