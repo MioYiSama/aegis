@@ -1,10 +1,13 @@
+use axum::Router;
 use tokio::net::TcpListener;
+use tower_http::cors::CorsLayer;
 
 #[tokio::main]
 async fn main() {
-    let (router, _) = aegis_backend::routes::user::router();
+    let router: Router<_> = aegis_backend::routes::router().into();
+    let router = router.layer(CorsLayer::very_permissive());
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
-    aegis_core::f();
+
     axum::serve(listener, router).await.unwrap();
 }

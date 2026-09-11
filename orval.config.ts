@@ -5,9 +5,10 @@ export default defineConfig({
     input: "./docs/openapi.json",
     output: {
       target: "./src/api/index.ts",
-      mode: "split",
+      mode: "tags-operations-split",
       client: "react-query",
       clean: true,
+      baseUrl: "http://127.0.0.1:3000",
     },
   },
 });

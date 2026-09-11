@@ -7,6 +7,9 @@
   "paths": {
     "/user": {
       "get": {
+        "tags": [
+          "User"
+        ],
         "operationId": "get_user",
         "responses": {
           "200": {
