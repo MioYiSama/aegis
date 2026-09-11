@@ -2,6 +2,7 @@
   "name": "aegis",
   "private": true,
   "dependencies": {
+    "@tanstack/react-form": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -11,6 +12,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@tsconfig/bases": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "orval": "catalog:",
     "oxc-transform-react": "catalog:",

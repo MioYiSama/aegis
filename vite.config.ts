@@ -3,6 +3,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   plugins: [react({ compiler: true })],
+  resolve: { tsconfigPaths: true },
   fmt: {
     ignorePatterns: ["src/wasm/**/*", "src/api/**/*"],
     sortImports: true,

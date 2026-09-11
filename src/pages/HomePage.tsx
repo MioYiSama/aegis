@@ -1,10 +1,11 @@
-import { useDeleteUser, useGetUser, usePostUser } from "../api";
+import { useForm } from "@tanstack/react-form";
+
+import env from "@/lib/env";
+
 import { greet } from "../wasm/aegis_wasm";
 
 export default function HomePage() {
-  const query = useGetUser();
-  const mutation = usePostUser();
-  const mutationDelete = useDeleteUser();
+  const form = useForm({});
 
-  return <p onClick={() => greet("hello")}>{JSON.stringify(import.meta.env.VITE_BACKEND_URL)}</p>;
+  return <p onClick={() => greet("hello")}>{env.VITE_BACKEND_URL}</p>;
 }
