@@ -6,18 +6,27 @@ export default defineConfig({
   plugins: [react({ compiler: true }), tailwindcss()],
   resolve: { tsconfigPaths: true },
   fmt: {
-    ignorePatterns: ["src/wasm/**/*", "src/api/**/*"],
+    ignorePatterns: ["src/wasm/**/*", "src/api/**/*", "src/components/ui/**/*"],
     sortImports: true,
+    sortPackageJson: true,
+    sortTailwindcss: true,
   },
   run: {
     tasks: {
-      "run:backend": {
+      backend: {
         command: "cargo run -p aegis-backend --bin server",
+      },
+      toasty: {
+        command: "cargo run -p aegis-backend --bin toasty",
+      },
+      build: {
+        dependsOn: ["wasm", "openapi"],
+        command: ["vp build", "cargo build --release -p aegis-backend --bin server"],
       },
       openapi: {
         command: ["cargo run -p aegis-backend --bin openapi", "orval"],
       },
-      "build:wasm": {
+      wasm: {
         command: [
           "cargo build -p aegis-wasm --profile aegis-wasm-release --target wasm32-unknown-unknown",
           "wasm-bindgen --out-dir src/wasm target/wasm32-unknown-unknown/aegis-wasm-release/aegis_wasm.wasm",
@@ -25,7 +34,11 @@ export default defineConfig({
         ],
       },
       clean: {
-        command: ["cargo clean", "rm -rf dist node_modules/.vite src/wasm"],
+        command: [
+          "cargo clean",
+          "rm -rf dist src/api src/wasm",
+          "rm -rf node_modules/.vite node_modules/.cache",
+        ],
       },
     },
   },

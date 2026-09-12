@@ -4,15 +4,6 @@
  * aegis-backend
  * OpenAPI spec version: 0.0.0
  */
-export interface SignInRequest {
-  identity: string;
-  password: string;
-}
-
-export interface SignInResponse {
-  token: string;
-}
-
 export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 

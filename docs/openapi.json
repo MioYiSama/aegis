@@ -5,19 +5,79 @@
     "version": "0.0.0"
   },
   "paths": {
-    "/user": {
-      "get": {
+    "/user/sign-in": {
+      "post": {
         "tags": [
           "User"
         ],
-        "operationId": "get_user",
+        "operationId": "sign_in",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/User"
+                  "$ref": "#/components/schemas/SignInResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/sign-up": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "operationId": "sign_up",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignUpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignUpResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -28,17 +88,75 @@
   },
   "components": {
     "schemas": {
-      "User": {
+      "SignInRequest": {
         "type": "object",
         "required": [
-          "id"
+          "identity",
+          "password"
         ],
         "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int32"
+          "identity": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
           }
         }
+      },
+      "SignInResponse": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "SignUpRequest": {
+        "type": "object",
+        "required": [
+          "identity",
+          "password",
+          "role"
+        ],
+        "properties": {
+          "identity": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "password": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          }
+        }
+      },
+      "SignUpResponse": {
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        }
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "Admin",
+          "Teacher",
+          "Student"
+        ]
       }
     }
   }

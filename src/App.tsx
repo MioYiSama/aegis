@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router";
 
 const queryClient = new QueryClient();
 
-const HomePage = lazy(() => import("./pages/HomePage"));
+const HomePage = lazy(() => import("./pages/Home"));
 
 export default function App() {
   return (
