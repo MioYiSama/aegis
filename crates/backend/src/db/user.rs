@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
-use toasty::{Embed, Model, ModelSet};
+use toasty::{Deferred, Embed, Model, ModelSet};
+
+use crate::db::auth::Session;
 
 #[derive(Model)]
 pub struct User {
@@ -7,15 +9,18 @@ pub struct User {
     #[auto]
     pub id: uuid::Uuid,
 
+    pub name: Option<String>,
+    pub role: UserRole,
+
     #[unique]
     pub identity: String,
     pub password: String,
 
-    pub name: Option<String>,
-    pub role: UserRole,
+    #[has_one]
+    pub session: Deferred<Option<Session>>,
 }
 
-#[derive(Embed, Serialize, Deserialize, utoipa::ToSchema)]
+#[derive(Embed, Clone, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[column(type = u8)]
 pub enum UserRole {
     #[column(variant = 0)]

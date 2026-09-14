@@ -5,12 +5,20 @@ members = ["crates/*"]
 [workspace.dependencies]
 argon2 = "0.6.0"
 axum = { version = "0.8.9", features = ["macros"] }
+axum-extra = { version = "0.12.6", features = ["cookie"] }
+base64 = "0.23.1"
 color-eyre = "0.6.5"
 dotenvy = "0.15.7"
+hex = "0.4.3"
+jiff = { version = "0.2.35" }
+jsonwebtoken = { version = "11.0.0", features = ["rust_crypto"] }
+rand = "0.10.2"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
+sha2 = "0.11.0"
 thiserror = "2.0.20"
-toasty = { version = "0.10.0", features = ["sqlite", "migration", "serde"] }
+time = "0.3.55"
+toasty = { version = "0.10.0", features = ["sqlite", "migration", "serde", "jiff"] }
 toasty-cli = "0.10.0"
 tokio = { version = "1.53.1", features = ["full"] }
 tower-http = { version = "0.7.1", features = ["cors", "catch-panic"] }
@@ -18,7 +26,8 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 utoipa = "5.5.0"
 utoipa-axum = "0.2.0"
-uuid = { version = "1.26.1", features = ["v7"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+uuid = { version = "1.26.1", features = ["v7", "serde"] }
 wasm-bindgen = "0.2.128"
 
 [profile.release]

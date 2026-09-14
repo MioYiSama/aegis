@@ -5,10 +5,50 @@
     "version": "0.0.0"
   },
   "paths": {
-    "/user/sign-in": {
+    "/auth/refresh": {
       "post": {
         "tags": [
-          "User"
+          "Auth"
+        ],
+        "operationId": "refresh",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sign-in": {
+      "post": {
+        "tags": [
+          "Auth"
         ],
         "operationId": "sign_in",
         "requestBody": {
@@ -27,7 +67,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignInResponse"
+                  "default": null
                 }
               }
             }
@@ -41,14 +81,54 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/user/sign-up": {
+    "/auth/sign-out": {
       "post": {
         "tags": [
-          "User"
+          "Auth"
+        ],
+        "operationId": "sign_out",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/sign-up": {
+      "post": {
+        "tags": [
+          "Auth"
         ],
         "operationId": "sign_up",
         "requestBody": {
@@ -67,12 +147,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SignUpResponse"
+                  "default": null
                 }
               }
             }
           },
           "400": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
             "description": "",
             "content": {
               "text/plain": {
@@ -103,17 +193,6 @@
           }
         }
       },
-      "SignInResponse": {
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "properties": {
-          "token": {
-            "type": "string"
-          }
-        }
-      },
       "SignUpRequest": {
         "type": "object",
         "required": [
@@ -136,17 +215,6 @@
           },
           "role": {
             "$ref": "#/components/schemas/UserRole"
-          }
-        }
-      },
-      "SignUpResponse": {
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "properties": {
-          "token": {
-            "type": "string"
           }
         }
       },

@@ -15,14 +15,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  SignInRequest,
-  SignInResponse
+  SignInRequest
 } from './sign-in.schemas.ts';
 
 
 
 export type signInResponse200 = {
-  data: SignInResponse
+  data: unknown
   status: 200
 }
 
@@ -31,10 +30,15 @@ export type signInResponse401 = {
   status: 401
 }
 
+export type signInResponse500 = {
+  data: string
+  status: 500
+}
+
 export type signInResponseSuccess = (signInResponse200) & {
   headers: Headers;
 };
-export type signInResponseError = (signInResponse401) & {
+export type signInResponseError = (signInResponse401 | signInResponse500) & {
   headers: Headers;
 };
 
@@ -45,7 +49,7 @@ export const getSignInUrl = () => {
 
 
 
-  return `http://127.0.0.1:3000/user/sign-in`
+  return `http://127.0.0.1:3000/auth/sign-in`
 }
 
 export const signIn = async (signInRequest: SignInRequest, options?: RequestInit): Promise<signInResponse> => {

@@ -4,6 +4,7 @@ use axum::{http::StatusCode, response::IntoResponse};
 pub enum AppError {
     BadRequest(String),
     Unauthorized(String),
+    PermissionDenied(String),
     Unknown(color_eyre::eyre::Report),
 }
 
@@ -21,6 +22,7 @@ impl IntoResponse for AppError {
         match self {
             AppError::BadRequest(message) => (StatusCode::BAD_REQUEST, message).into_response(),
             AppError::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message).into_response(),
+            AppError::PermissionDenied(message) => (StatusCode::FORBIDDEN, message).into_response(),
             AppError::Unknown(report) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, report.to_string()).into_response()
             }

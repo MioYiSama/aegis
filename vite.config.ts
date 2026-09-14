@@ -5,6 +5,9 @@ import { defineConfig } from "vite-plus";
 export default defineConfig({
   plugins: [react({ compiler: true }), tailwindcss()],
   resolve: { tsconfigPaths: true },
+  test: {
+    include: ["tests/**/*.test.ts"],
+  },
   fmt: {
     ignorePatterns: ["src/wasm/**/*", "src/api/**/*", "src/components/ui/**/*"],
     sortImports: true,

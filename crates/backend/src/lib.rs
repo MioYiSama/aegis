@@ -1,6 +1,7 @@
 pub mod db;
 pub mod routes;
 pub mod state;
+pub mod token;
 
 pub fn init_tracing() {
     tracing_subscriber::fmt().init();

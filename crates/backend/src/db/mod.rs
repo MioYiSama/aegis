@@ -1,16 +1,16 @@
 use color_eyre::eyre::*;
 use toasty::{Db, ModelSet};
 
+pub mod auth;
 pub mod user;
 
-pub async fn connect() -> Result<Db> {
-    let url = url_from_env()?;
-    let db = Db::builder().models(models()).connect(&url).await?;
-    Ok(db)
+pub fn url_from_env() -> Option<String> {
+    std::env::var("DATABASE_URL").ok()
 }
 
-fn url_from_env() -> Result<String> {
-    Ok(std::env::var("DATABASE_URL")?)
+pub async fn connect(url: &str) -> Result<Db> {
+    let db = Db::builder().models(models()).connect(url).await?;
+    Ok(db)
 }
 
 #[cfg(not(debug_assertions))]
@@ -23,7 +23,7 @@ pub async fn migrate(#[allow(unused)] db: &Db) -> Result {
 }
 
 fn models() -> ModelSet {
-    vec![user::models()]
+    vec![auth::models(), user::models()]
         .into_iter()
         .flatten()
         .fold(ModelSet::new(), |mut models, model| {

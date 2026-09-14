@@ -4,3 +4,4 @@ target
 .env*
 !.env.example
 *.db
+.DS_Store

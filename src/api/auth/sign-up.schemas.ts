@@ -21,7 +21,3 @@ export interface SignUpRequest {
   role: UserRole;
 }
 
-export interface SignUpResponse {
-  token: string;
-}
-

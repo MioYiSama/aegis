@@ -15,14 +15,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  SignUpRequest,
-  SignUpResponse
+  SignUpRequest
 } from './sign-up.schemas.ts';
 
 
 
 export type signUpResponse200 = {
-  data: SignUpResponse
+  data: unknown
   status: 200
 }
 
@@ -31,10 +30,15 @@ export type signUpResponse400 = {
   status: 400
 }
 
+export type signUpResponse500 = {
+  data: string
+  status: 500
+}
+
 export type signUpResponseSuccess = (signUpResponse200) & {
   headers: Headers;
 };
-export type signUpResponseError = (signUpResponse400) & {
+export type signUpResponseError = (signUpResponse400 | signUpResponse500) & {
   headers: Headers;
 };
 
@@ -45,7 +49,7 @@ export const getSignUpUrl = () => {
 
 
 
-  return `http://127.0.0.1:3000/user/sign-up`
+  return `http://127.0.0.1:3000/auth/sign-up`
 }
 
 export const signUp = async (signUpRequest: SignUpRequest, options?: RequestInit): Promise<signUpResponse> => {
