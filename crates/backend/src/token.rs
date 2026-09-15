@@ -10,16 +10,24 @@ use crate::db::user::{User, UserRole};
 
 #[derive(Serialize, Deserialize)]
 pub struct Claims {
+    pub iss: String,
+    pub aud: String,
     pub sub: String,
     pub iat: i64, // seconds
     pub exp: i64, // seconds
     pub role: UserRole,
 }
 
+static ISS: LazyLock<String> =
+    LazyLock::new(|| std::env::var("BACKEND_URL").expect("BACKEND_URL must be specified"));
+static AUD: &str = env!("CARGO_PKG_NAME");
+
 impl From<&User> for Claims {
     fn from(user: &User) -> Self {
         let now = jiff::Timestamp::now().as_second();
         Self {
+            iss: ISS.clone(),
+            aud: AUD.to_owned(),
             sub: user.identity.clone(),
             iat: now,
             exp: now + 300,

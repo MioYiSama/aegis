@@ -8,7 +8,9 @@ export default defineConfig({
       mode: "tags-operations-split",
       client: "react-query",
       clean: true,
-      baseUrl: "http://127.0.0.1:3000",
+      baseUrl: {
+        runtime: 'import.meta.env["VITE_BACKEND_URL"]!',
+      },
     },
   },
 });

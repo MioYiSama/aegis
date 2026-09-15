@@ -49,7 +49,7 @@ export const getSignUpUrl = () => {
 
 
 
-  return `http://127.0.0.1:3000/auth/sign-up`
+  return `${import.meta.env["VITE_BACKEND_URL"]!}/auth/sign-up`
 }
 
 export const signUp = async (signUpRequest: SignUpRequest, options?: RequestInit): Promise<signUpResponse> => {

@@ -45,7 +45,7 @@ export const getRefreshUrl = () => {
 
 
 
-  return `http://127.0.0.1:3000/auth/refresh`
+  return `${import.meta.env["VITE_BACKEND_URL"]!}/auth/refresh`
 }
 
 export const refresh = async ( options?: RequestInit): Promise<refreshResponse> => {

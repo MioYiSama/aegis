@@ -29,3 +29,6 @@ utoipa-axum.workspace = true
 utoipa-swagger-ui.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
+
+[lints.rust]
+dead_code = "allow"

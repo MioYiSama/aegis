@@ -40,7 +40,7 @@ export const getSignOutUrl = () => {
 
 
 
-  return `http://127.0.0.1:3000/auth/sign-out`
+  return `${import.meta.env["VITE_BACKEND_URL"]!}/auth/sign-out`
 }
 
 export const signOut = async ( options?: RequestInit): Promise<signOutResponse> => {

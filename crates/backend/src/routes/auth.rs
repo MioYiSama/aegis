@@ -3,7 +3,7 @@ use axum::{
     Json,
     extract::{Request, State},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use axum_extra::extract::{
     CookieJar,
@@ -19,7 +19,7 @@ use crate::{
     },
     routes::error::{AppError, AppResult},
     state::AppState,
-    token::{self, Claims, digest_token, generate_jwt, generate_token},
+    token::{Claims, digest_token, generate_jwt, generate_token, parse_jwt},
 };
 
 const ACCESS_TOKEN_COOKIE: &str = "access_token";
@@ -66,13 +66,13 @@ fn add_auth_cookies(jar: CookieJar, access_token: String, refresh_token: String)
 
 fn remove_auth_cookies(jar: CookieJar) -> CookieJar {
     jar.remove(
-        Cookie::build((ACCESS_TOKEN_COOKIE, ""))
+        Cookie::build(ACCESS_TOKEN_COOKIE)
             .path(ACCESS_TOKEN_PATH)
             .secure(COOKIE_SECURE)
             .removal(),
     )
     .remove(
-        Cookie::build((REFRESH_TOKEN_COOKIE, ""))
+        Cookie::build(REFRESH_TOKEN_COOKIE)
             .path(REFRESH_TOKEN_PATH)
             .secure(COOKIE_SECURE)
             .removal(),
@@ -80,8 +80,8 @@ fn remove_auth_cookies(jar: CookieJar) -> CookieJar {
 }
 
 async fn create_session(jar: CookieJar, state: &mut AppState, user: &User) -> AppResult<CookieJar> {
-    let access_token = token::generate_jwt(user)?;
-    let refresh_token = token::generate_token();
+    let access_token = generate_jwt(user)?;
+    let refresh_token = generate_token();
 
     Session::upsert_by_user_id(user.id)
         .token(digest_token(&refresh_token))
@@ -114,7 +114,7 @@ struct SignUpRequest {
     post, path = "/sign-up", tag = "Auth",
     request_body = SignUpRequest,
     responses(
-        (status = 200, body = ()),
+        (status = 200, body = (), headers(("Set-Cookie" = String))),
         (status = 400, body = String),
         (status = 500, body = String),
     )
@@ -124,6 +124,13 @@ async fn sign_up(
     State(mut state): State<AppState>,
     Json(request): Json<SignUpRequest>,
 ) -> AppResult<CookieJar> {
+    if request.identity.trim().is_empty() {
+        return AppError::BadRequest("学号/工号不能为空".to_owned()).into();
+    }
+    if request.password.len() < 6 {
+        return AppError::BadRequest("密码长度必须至少为6个字符".to_owned()).into();
+    }
+
     if matches!(request.role, UserRole::Admin) {
         return AppError::BadRequest("禁止注册管理员身份的账号".to_owned()).into();
     }
@@ -157,7 +164,7 @@ struct SignInRequest {
     post, path = "/sign-in", tag = "Auth",
     request_body = SignInRequest,
     responses(
-        (status = 200, body = ()),
+        (status = 200, body = (), headers(("Set-Cookie" = String))),
         (status = 401, body = String),
         (status = 500, body = String),
     )
@@ -182,15 +189,15 @@ async fn sign_in(
 #[utoipa::path(
     post, path = "/sign-out", tag = "Auth",
     responses(
-        (status = 200, body = ()),
+        (status = 200, body = (), headers(("Set-Cookie" = String))),
         (status = 500, body = String),
     )
 )]
 pub async fn sign_out(jar: CookieJar, State(mut state): State<AppState>) -> AppResult<CookieJar> {
     if let Some(cookie) = jar.get(REFRESH_TOKEN_COOKIE) {
-        let digest = token::digest_token(cookie.value());
+        let refresh_token = cookie.value();
 
-        Session::delete_by_token(&mut state.db, digest).await?;
+        Session::delete_by_token(&mut state.db, digest_token(refresh_token)).await?;
     }
 
     Ok(remove_auth_cookies(jar))
@@ -200,7 +207,7 @@ pub async fn sign_out(jar: CookieJar, State(mut state): State<AppState>) -> AppR
 #[utoipa::path(
     post, path = "/refresh", tag = "Auth",
     responses(
-        (status = 200, body = ()),
+        (status = 200, body = (), headers(("Set-Cookie" = String))),
         (status = 401, body = String),
         (status = 500, body = String),
     )
@@ -246,18 +253,13 @@ impl From<Claims> for AuthContext {
 impl AuthContext {
     pub fn authorize(&self, target_role: UserRole) -> AppResult<()> {
         match self {
-            AuthContext::Anonymous => AppError::PermissionDenied("未登录".to_owned()).into(),
+            AuthContext::Anonymous => AppError::Unauthorized("未登录".to_owned()).into(),
             AuthContext::Authenticated {
                 role: UserRole::Admin,
                 ..
             } => Ok(()),
-            AuthContext::Authenticated { role, .. } => {
-                if *role == target_role {
-                    Ok(())
-                } else {
-                    AppError::PermissionDenied("权限不足".to_owned()).into()
-                }
-            }
+            AuthContext::Authenticated { role, .. } if *role == target_role => Ok(()),
+            _ => AppError::PermissionDenied("权限不足".to_owned()).into(),
         }
     }
 }
@@ -266,7 +268,7 @@ impl AuthContext {
 pub async fn middleware(jar: CookieJar, mut req: Request, next: Next) -> Response {
     let ctx = jar
         .get(ACCESS_TOKEN_COOKIE)
-        .and_then(|cookie| token::parse_jwt(cookie.value()).ok())
+        .and_then(|cookie| parse_jwt(cookie.value()).ok())
         .map(AuthContext::from)
         .unwrap_or_default();
 
