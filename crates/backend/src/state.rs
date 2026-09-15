@@ -1,16 +1,23 @@
 use color_eyre::eyre::*;
 use toasty::Db;
 
+use crate::model;
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: Db,
 }
 
-impl AppState {
-    pub async fn new(database_url: &str) -> Result<Self> {
-        let db = crate::db::connect(database_url).await?;
-        crate::db::migrate(&db).await?;
+pub async fn connect_db() -> Result<Db> {
+    let url = std::env::var("DATABASE_URL")?;
+    let db = Db::builder().models(model::models()).connect(&url).await?;
+    Ok(db)
+}
 
-        Ok(Self { db })
+impl AppState {
+    pub async fn new() -> Result<Self> {
+        Ok(Self {
+            db: connect_db().await?,
+        })
     }
 }

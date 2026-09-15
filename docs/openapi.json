@@ -11,6 +11,24 @@
           "Auth"
         ],
         "operationId": "refresh",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refresh_token",
+            "in": "cookie",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -20,11 +38,14 @@
                   "type": "string"
                 }
               }
-            },
+            }
+          },
+          "400": {
+            "description": "",
             "content": {
-              "application/json": {
+              "text/plain": {
                 "schema": {
-                  "default": null
+                  "type": "string"
                 }
               }
             }
@@ -77,16 +98,9 @@
                   "type": "string"
                 }
               }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": null
-                }
-              }
             }
           },
-          "401": {
+          "400": {
             "description": "",
             "content": {
               "text/plain": {
@@ -115,6 +129,24 @@
           "Auth"
         ],
         "operationId": "sign_out",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "refresh_token",
+            "in": "cookie",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "",
@@ -122,13 +154,6 @@
               "Set-Cookie": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": null
                 }
               }
             }
@@ -169,13 +194,6 @@
               "Set-Cookie": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "default": null
                 }
               }
             }

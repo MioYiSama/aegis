@@ -17,7 +17,7 @@ import type {
 
 
 export type signOutResponse200 = {
-  data: unknown
+  data: void
   status: 200
 }
 
@@ -57,7 +57,7 @@ export const signOut = async ( options?: RequestInit): Promise<signOutResponse> 
   const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: signOutResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  const data: signOutResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : undefined
   return { data, status: res.status, headers: res.headers } as signOutResponse
 }
 

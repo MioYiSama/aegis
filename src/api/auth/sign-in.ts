@@ -21,13 +21,13 @@ import type {
 
 
 export type signInResponse200 = {
-  data: unknown
+  data: void
   status: 200
 }
 
-export type signInResponse401 = {
+export type signInResponse400 = {
   data: string
-  status: 401
+  status: 400
 }
 
 export type signInResponse500 = {
@@ -38,7 +38,7 @@ export type signInResponse500 = {
 export type signInResponseSuccess = (signInResponse200) & {
   headers: Headers;
 };
-export type signInResponseError = (signInResponse401 | signInResponse500) & {
+export type signInResponseError = (signInResponse400 | signInResponse500) & {
   headers: Headers;
 };
 
@@ -80,7 +80,7 @@ const res = await fetch(getSignInUrl(),
   const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: signInResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  const data: signInResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : undefined
   return { data, status: res.status, headers: res.headers } as signInResponse
 }
 

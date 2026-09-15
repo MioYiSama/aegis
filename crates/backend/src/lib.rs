@@ -1,7 +1,10 @@
-pub mod db;
-pub mod routes;
+pub mod handler;
+pub mod model;
+pub mod service;
 pub mod state;
-pub mod token;
+
+pub const DEBUG: bool = cfg!(debug_assertions);
+pub const RELEASE: bool = cfg!(not(debug_assertions));
 
 pub fn init_tracing() {
     tracing_subscriber::fmt().init();

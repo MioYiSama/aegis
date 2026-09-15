@@ -21,7 +21,7 @@ import type {
 
 
 export type signUpResponse200 = {
-  data: unknown
+  data: void
   status: 200
 }
 
@@ -80,7 +80,7 @@ const res = await fetch(getSignUpUrl(),
   const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: signUpResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  const data: signUpResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : undefined
   return { data, status: res.status, headers: res.headers } as signUpResponse
 }
 

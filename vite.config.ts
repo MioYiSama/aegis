@@ -8,6 +8,12 @@ export default defineConfig({
   test: {
     include: ["tests/**/*.test.ts"],
   },
+  lint: {
+    ignorePatterns: ["src/wasm/**/*", "src/api/**/*", "src/components/ui/**/*"],
+    options: { typeAware: true, typeCheck: true },
+    plugins: ["react", "react-perf", "jsx-a11y"],
+    jsPlugins: ["@shadcn/lint"],
+  },
   fmt: {
     ignorePatterns: ["src/wasm/**/*", "src/api/**/*", "src/components/ui/**/*"],
     sortImports: true,

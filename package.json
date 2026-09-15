@@ -10,15 +10,18 @@
     "@types/react-dom": "catalog:",
     "class-variance-authority": "catalog:",
     "cn": "catalog:",
+    "immer": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-router": "catalog:",
     "shadcn": "catalog:",
     "tw-animate-css": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zustand": "catalog:"
   },
   "devDependencies": {
+    "@shadcn/lint": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/bases": "catalog:",
     "@vitejs/plugin-react": "catalog:",

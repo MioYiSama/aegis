@@ -17,8 +17,13 @@ import type {
 
 
 export type refreshResponse200 = {
-  data: unknown
+  data: void
   status: 200
+}
+
+export type refreshResponse400 = {
+  data: string
+  status: 400
 }
 
 export type refreshResponse401 = {
@@ -34,7 +39,7 @@ export type refreshResponse500 = {
 export type refreshResponseSuccess = (refreshResponse200) & {
   headers: Headers;
 };
-export type refreshResponseError = (refreshResponse401 | refreshResponse500) & {
+export type refreshResponseError = (refreshResponse400 | refreshResponse401 | refreshResponse500) & {
   headers: Headers;
 };
 
@@ -62,7 +67,7 @@ export const refresh = async ( options?: RequestInit): Promise<refreshResponse> 
   const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: refreshResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : {}
+  const data: refreshResponse['data'] = body ? (contentType.includes('json') ? JSON.parse(body) : body) : undefined
   return { data, status: res.status, headers: res.headers } as refreshResponse
 }
 
