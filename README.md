@@ -49,9 +49,9 @@
 
 ## 项目结构
 
-- `src`（规划，未实现）：Web 前端（React 19.3、React Router 8，orval）
+- `src`：Web 前端（React 19.3、React Router 8、TanStack Query、Orval、Base UI）
 - `crates/core`：Rust，无密钥色度二维码编解码与人脸算法（二维码兼容 /Users/mioyi/Documents/Code/Python/qr-code-lab）
-- `crates/wasm`（规划，未实现）：Rust，向前端提供核心算法
+- `crates/wasm`：Rust，向前端导出色度二维码 PNG 编码与 RGBA 解码
 - `crates/backend`：Rust，后端（Axum + utoipa），Auth使用session+单opaque token+RBAC
 
 ## 本地后端运行
@@ -101,6 +101,65 @@ cargo test --workspace
 ```
 
 固定模型的上游许可证和署名保存在 `licenses/`，来源、版本及修正的 OpenCV Zoo commit 记录于 `licenses/SOURCES.txt`。YuNet 为 MIT；SFace、MiniFASNet 原项目和社区 ONNX 转换项目为 Apache-2.0。社区转换不代表上游官方认证。
+
+## Web 前端
+
+前端使用 React 19、React Router 8、TanStack Query 和 shadcn/ui 的 Base UI 组件，默认中文、浅色主题。教师维护课程、名单、课次与阶段，查看投屏、审核和完整冻结快照；学生使用移动端单列完成首次人脸登记、考勤、显式审核申请、请假和本人汇总。学生不能自主加课，页面不提供后端尚未支持的课程修改、资料编辑或人脸替换操作。
+
+### 开发与构建
+
+需要 Node.js ≥22.22、npm、Rust 和 `wasm32-unknown-unknown` target。`wasm-pack` 随开发依赖安装，不需要全局安装。先按上文准备 OpenCV、模型和后端环境，再运行：
+
+```sh
+rustup target add wasm32-unknown-unknown
+npm ci
+
+# 后端终端：Origin 必须与浏览器页面源完全一致。
+AEGIS_ORIGIN=http://localhost:5173 AEGIS_COOKIE_SECURE=false cargo run -p aegis-backend
+
+# 前端终端：自动构建 QR WASM 后启动 Vite。
+npm run dev
+```
+
+浏览器访问 **http://localhost:5173**，不要替换为 `127.0.0.1:5173`。dev 和 preview 都固定使用 5173，端口被占用时直接失败；`/api`、`/healthz`、`/readyz` 代理到 `http://127.0.0.1:3000`，保留浏览器 Origin。
+
+OpenAPI 快照及 Orval 生成的客户端、类型已纳入源码，普通 dev/build 不要求后端在线生成客户端。后端契约变化时先启动后端，再执行：
+
+```sh
+npm run api:sync
+npm run api:generate
+# api:sync 可通过 AEGIS_OPENAPI_URL 指定文档地址。
+
+cargo check -p aegis-wasm --target wasm32-unknown-unknown
+npx wasm-pack test --node crates/wasm
+cargo test --workspace
+npm run build
+
+# 停止 dev 后启动构建预览。
+npm run preview
+```
+
+`cargo test --workspace` 仍需要上文的 OpenCV 环境。`npm run build` 依次构建 WASM、检查 TypeScript、输出 `dist/`；`node_modules/`、`dist/` 和 `src/wasm/generated/` 不纳入源码。
+
+### WASM、媒体与会话边界
+
+`crates/wasm` 直接复用纯 Rust QR 核心，导出 `encode_chroma_png` 和 `decode_chroma_rgba`，不启用 OpenCV。编码仅接受 1–42 字符 ASCII；解码要求宽高各为 1–1920、RGBA 长度精确匹配，不可读图像返回 `undefined`。扫码在按需创建的 module worker 中运行，同一时刻只解一帧；识别后上传同一帧的无损 PNG，不上传解出的 token，不重绘教师返回的载波。
+
+相机、定位仅在用户开始采集后启用；人脸三帧、扫码图和挑战只用于当前操作，不写入浏览器存储。取消、离页、退出和受保护请求的 401 会停止媒体及 worker，并清理账号缓存。提交不自动重试；二维码、人脸挑战过期、窗口关闭或 `503` 都不能降级为通过，重新开始会获取新挑战。
+
+未送审的可审核回执只在当前 tab 的 `sessionStorage` 中保存最少元数据（账号、课次、阶段、回执 ID、服务端时间、因素及原因），刷新后仍须用户显式申请；不保存照片、坐标或挑战。申请送达、阶段通过或退出账号后移除回执。已送达申请以课次服务端审核记录为准，不承诺跨设备或关闭 tab 后恢复未送审明细。请假附件通过授权接口下载，按实际 MIME 保留扩展名，不公开附件地址或内联执行文件。
+
+### 生产部署
+
+使用 HTTPS 同源反向代理提供 `dist/` 静态资源及后端接口；SPA 深层页面路径回退 `index.html`，`/api`、`/healthz`、`/readyz` 交给后端。正确提供 module worker、字体及 `.wasm` 资源，WASM 的 Content-Type 为 `application/wasm`。设置 `AEGIS_ORIGIN` 为真实页面源（无尾随 `/`）、`AEGIS_COOKIE_SECURE=true`。Vite preview 仅用于本机构建验收，不作为生产服务器；不需要扩展 Axum 静态托管或开放跨源 API。
+
+### 前端软件验收
+
+真实后端与隔离数据库已完成注册、名单重复冲突、三因素签到、无二维码续签/签退、显式部分审核、迟到截止及审批、请假与附件越权、冻结历史名单、服务端第二页分页、权限拒绝、二维码/挑战过期、SQLite `503 busy`、提交前关闭课次，以及会话撤销和账号缓存隔离。PNG 附件下载字节与上传一致；2.7 MiB PDF 可上传并按 PDF 类型下载，超过 5 MiB 的凭据被拒绝。
+
+构建预览已验证真实 module worker 与 `.wasm` 资源加载、深层路由刷新和三因素提交。学生 320/390px、教师 1440/768px 页面及 128 字符连续标题无页面横向溢出；导航、dialog、select 和 tab 的键盘操作、焦点恢复与 44px 触控目标已检查。投屏响应延迟超过 5 秒时不展示已过期 PNG，正常响应仍可刷新并进入全屏；TTL 估计计入请求及响应体交付耗时。退出接口真实返回 `503 busy` 时保留登录状态并允许手动重试，不假报退出成功。
+
+软件烟测使用公开 T1 回归图的模拟相机、模拟定位和教师真实 QR 接口，所有业务响应和人脸推理来自真实后端，正式应用没有测试媒体入口。**尚未验证真实投影屏摄、手机定位准确度或自然人实时活体**；这些软件结果不证明防代签或防直播效果。验收数据库与媒体均位于独立临时目录，不修改既有数据库或模型。
 
 ## 本地后端安全边界
 

@@ -4,3 +4,7 @@
 *.db
 *.db-shm
 *.db-wal
+/node_modules/
+/dist/
+/src/wasm/generated/
+*.tsbuildinfo

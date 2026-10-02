@@ -1,0 +1,116 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/dm-sans";
+@theme inline {
+  --font-sans:
+    "DM Sans Variable", -apple-system, BlinkMacSystemFont, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--background);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--background);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #fff;
+  --color-secondary: #f2f3f5;
+  --color-secondary-foreground: #0a0a0a;
+  --color-muted: #f7f8fa;
+  --color-muted-foreground: #5f5f5f;
+  --color-accent: #f2f3f5;
+  --color-accent-foreground: #0a0a0a;
+  --color-destructive: #b42318;
+  --color-border: #e5e7eb;
+  --color-input: #d1d5db;
+  --color-ring: #1456f0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+}
+:root {
+  --background: #fff;
+  --foreground: #0a0a0a;
+  --primary: #0a0a0a;
+  --radius: 12px;
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    margin: 0;
+    min-width: 320px;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  h1 {
+    font-size: 32px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  h2 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+  a,
+  button,
+  input,
+  select,
+  textarea {
+    touch-action: manipulation;
+  }
+  :focus-visible {
+    outline: 2px solid #1456f0;
+    outline-offset: 3px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+button,
+[data-slot="button"],
+[data-slot="tabs-trigger"] {
+  min-width: 44px;
+  min-height: 44px;
+}
+[data-slot="button"] {
+  border-radius: 9999px;
+  padding-inline: 20px;
+  transition-duration: 150ms;
+}
+[data-slot="input"],
+[data-slot="textarea"],
+[data-slot="select-trigger"] {
+  min-height: 44px;
+  font-size: 16px;
+}
+[data-slot="select-item"] {
+  min-height: 44px;
+}
+[data-slot="skeleton"] {
+  animation: none;
+}
+@media (max-width: 767px) {
+  h1 {
+    font-size: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

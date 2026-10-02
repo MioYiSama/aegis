@@ -1,0 +1,3671 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aegis Backend API",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/attempts/{attempt_id}/review": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "reviews_create_attempt_review",
+        "parameters": [
+          {
+            "name": "attempt_id",
+            "in": "path",
+            "description": "Reviewable attendance attempt",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Existing review request for this attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Review request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Attempt not found or not owned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Attempt is not reviewable, its stage passed, or another review is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid reason or path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth_login",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated user; opaque session token is set only in the cookie",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "HttpOnly; SameSite=Strict; Path=/; Max-Age=604800; Secure when configured"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the JSON limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid login request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth_logout",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session invalidated and cookie cleared",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Max-Age=0; HttpOnly; SameSite=Strict; Path=/; Secure when configured"
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth_me",
+        "responses": {
+          "200": {
+            "description": "Current authenticated user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "auth_register",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; registration does not create a session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username or student number already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds the JSON limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid registration fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal service error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/courses": {
+      "get": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_list_courses",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size from 1 to 100; defaults to 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based offset; defaults to 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 0,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Courses visible to the current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Course"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_create_course",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Course created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Teacher role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid course title or request fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/courses/{course_id}": {
+      "get": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_get_course",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Course visible to the current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid course identifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/courses/{course_id}/lessons": {
+      "get": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_list_lessons",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size from 1 to 100; defaults to 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based offset; defaults to 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 0,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lessons visible to the current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Lesson"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid path or pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_create_lesson",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLessonRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Lesson created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lesson"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Teacher role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found or not owned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid title or lesson time range",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/courses/{course_id}/students": {
+      "get": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_list_students",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size from 1 to 100; defaults to 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based offset; defaults to 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 0,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current course roster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_StudentRosterItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Teacher role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found or not owned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid path or pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_add_student",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddStudentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Student added to the roster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StudentRosterItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Teacher role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found or student number not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Student is already enrolled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/courses/{course_id}/students/{user_id}": {
+      "delete": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_remove_student",
+        "parameters": [
+          {
+            "name": "course_id",
+            "in": "path",
+            "description": "Course identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "Student account identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Student removed from the current roster"
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Teacher role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Course not found, not owned, or student not enrolled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid identifiers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/face/challenges": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "operationId": "attendance_issue_face_challenge",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaceChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "A 60-second, single-use student face challenge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceChallenge"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stage not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Challenge purpose or submission window conflicts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/face/enroll": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "operationId": "attendance_enroll_face",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/FaceEnrollmentMultipart"
+              },
+              "encoding": {
+                "frame_0": {
+                  "contentType": "image/jpeg, image/png"
+                },
+                "frame_1": {
+                  "contentType": "image/jpeg, image/png"
+                },
+                "frame_2": {
+                  "contentType": "image/jpeg, image/png"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Face template enrolled; biometric data is never returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceEnrollmentReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Challenge expired, consumed, mismatched, or face already enrolled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Multipart body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid multipart media or face enrollment factors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Local face inference unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{id}/close": {
+      "post": {
+        "tags": [
+          "stages"
+        ],
+        "operationId": "stages_close_lesson",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Lesson identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must match AEGIS_ORIGIN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Closed lesson",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lesson"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A check_in stage is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{id}/stages": {
+      "post": {
+        "tags": [
+          "stages"
+        ],
+        "operationId": "stages_create_lesson_stage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Lesson identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must match AEGIS_ORIGIN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateStageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Opened attendance stage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stage ordering or lesson window conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid stage parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{lesson_id}": {
+      "get": {
+        "tags": [
+          "crate::courses"
+        ],
+        "operationId": "courses_get_lesson",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "description": "Lesson identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lesson details with stages in ordinal order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid lesson identifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{lesson_id}/attendance": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "operationId": "summary_get_lesson_attendance",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "description": "Lesson identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Full lesson roster attendance summary with one row for the current student or all roster students for the teacher",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonAttendance"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid lesson identifier",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{lesson_id}/leave": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "reviews_create_leave_request",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "description": "Lesson to request leave for",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/LeaveMultipart"
+              },
+              "encoding": {
+                "evidence": {
+                  "contentType": "image/jpeg, image/png, application/pdf"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Leave request created; attachment is retained privately",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A leave request is already pending or approved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Evidence exceeds the upload limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid multipart fields, reason, MIME type, or evidence magic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/lessons/{lesson_id}/reviews": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "reviews_list_lesson_reviews",
+        "parameters": [
+          {
+            "name": "lesson_id",
+            "in": "path",
+            "description": "Lesson identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Page size from 1 to 100; defaults to 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Zero-based offset; defaults to 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 0,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reviews visible to the current user; evidence bytes are not included",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lesson not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid lesson identifier or pagination",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/openapi.json": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "api_get_openapi",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1.0 document for the complete Aegis HTTP API",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reviews/{review_id}/decision": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "reviews_decide_review",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "description": "Review identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Review decision applied or repeated idempotently",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Review"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owning teacher role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review not found or not owned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A different decision already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds its configured size limit; error code is invalid_input.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid path, decision, or note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/reviews/{review_id}/evidence": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "operationId": "reviews_get_evidence",
+        "parameters": [
+          {
+            "name": "review_id",
+            "in": "path",
+            "description": "Review identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Original validated PDF, PNG, or JPEG evidence bytes with private download headers",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "attachment; filename=\"evidence\""
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "nosniff"
+              }
+            },
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Review not found or not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Review does not contain evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/stages/{id}/attempts": {
+      "post": {
+        "tags": [
+          "attendance"
+        ],
+        "operationId": "attendance_submit_attempt",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Attendance stage identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must equal the configured application origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AttendanceAttemptMultipart"
+              },
+              "encoding": {
+                "frame_0": {
+                  "contentType": "image/jpeg, image/png"
+                },
+                "frame_1": {
+                  "contentType": "image/jpeg, image/png"
+                },
+                "frame_2": {
+                  "contentType": "image/jpeg, image/png"
+                },
+                "payload": {
+                  "contentType": "application/json"
+                },
+                "qr_image": {
+                  "contentType": "image/jpeg, image/png"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Persisted factor attempt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttendanceAttempt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required or Origin rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stage not found or student not in its frozen roster",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Challenge already consumed, expired, mismatched, or window closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Multipart body exceeds limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid multipart protocol or media",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Factor inference unavailable or worker capacity exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/stages/{id}/close": {
+      "post": {
+        "tags": [
+          "stages"
+        ],
+        "operationId": "stages_close_stage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Stage identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "description": "Must match AEGIS_ORIGIN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current stage, closed early when still open",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Stage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stage not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/stages/{id}/qr": {
+      "get": {
+        "tags": [
+          "stages"
+        ],
+        "operationId": "stages_get_stage_qr",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Stage identifier",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current check_in QR image; never cached",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store"
+              },
+              "X-QR-Expires-At": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "RFC3339 expiration time"
+              }
+            },
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Only the owning teacher can retrieve a QR image",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Stage not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "QR is unavailable outside an open check_in window",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "system_healthz",
+        "responses": {
+          "200": {
+            "description": "Process health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "operationId": "system_readyz",
+        "responses": {
+          "200": {
+            "description": "Database and local inference services are ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A required service is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddStudentRequest": {
+        "type": "object",
+        "required": [
+          "student_no"
+        ],
+        "properties": {
+          "student_no": {
+            "type": "string",
+            "description": "Trimmed, nonempty student number of at most 64 characters.",
+            "maxLength": 64,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ApiErrorCode"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiErrorCode": {
+        "type": "string",
+        "enum": [
+          "invalid_input",
+          "unauthenticated",
+          "forbidden",
+          "not_found",
+          "conflict",
+          "window_closed",
+          "factor_unavailable",
+          "busy",
+          "internal"
+        ]
+      },
+      "AttemptFactors": {
+        "type": "object",
+        "required": [
+          "location",
+          "face"
+        ],
+        "properties": {
+          "face": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": "boolean"
+          },
+          "qr": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "AttemptOutcome": {
+        "type": "string",
+        "enum": [
+          "passed",
+          "reviewable",
+          "failed"
+        ]
+      },
+      "AttemptPayload": {
+        "type": "object",
+        "required": [
+          "face_challenge_id"
+        ],
+        "properties": {
+          "face_challenge_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "location": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SubmittedLocation"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "AttendanceAttempt": {
+        "type": "object",
+        "required": [
+          "id",
+          "stage_id",
+          "submitted_at",
+          "factors",
+          "is_late",
+          "outcome",
+          "reason_codes"
+        ],
+        "properties": {
+          "factors": {
+            "$ref": "#/components/schemas/AttemptFactors"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_late": {
+            "type": "boolean"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/AttemptOutcome"
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReasonCode"
+            }
+          },
+          "review_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "stage_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AttendanceAttemptMultipart": {
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "properties": {
+          "frame_0": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "Optional JPEG or PNG face frame; maximum 2 MiB."
+          },
+          "frame_1": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "Optional JPEG or PNG face frame; maximum 2 MiB."
+          },
+          "frame_2": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "Optional JPEG or PNG face frame; maximum 2 MiB."
+          },
+          "payload": {
+            "$ref": "#/components/schemas/AttemptPayload"
+          },
+          "qr_image": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "binary",
+            "description": "Optional JPEG or PNG QR image; maximum 2 MiB; regular check_in only."
+          }
+        },
+        "additionalProperties": false
+      },
+      "AttendanceStatus": {
+        "type": "string",
+        "enum": [
+          "in_progress",
+          "excused",
+          "present",
+          "pending",
+          "absent",
+          "early_departure"
+        ]
+      },
+      "ChallengePurpose": {
+        "type": "string",
+        "enum": [
+          "enroll",
+          "attendance"
+        ]
+      },
+      "Course": {
+        "type": "object",
+        "required": [
+          "id",
+          "teacher_id",
+          "title",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "teacher_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateCourseRequest": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Trimmed, nonempty course title of at most 128 characters.",
+            "maxLength": 128,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateLessonRequest": {
+        "type": "object",
+        "required": [
+          "title",
+          "starts_at",
+          "ends_at"
+        ],
+        "properties": {
+          "ends_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC3339 timestamp later than starts_at."
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RFC3339 timestamp; lesson start time is fixed after creation."
+          },
+          "title": {
+            "type": "string",
+            "description": "Trimmed, nonempty lesson title of at most 128 characters.",
+            "maxLength": 128,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateReviewRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateStageRequest": {
+        "type": "object",
+        "required": [
+          "kind",
+          "duration_seconds",
+          "latitude",
+          "longitude",
+          "radius_m"
+        ],
+        "properties": {
+          "duration_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "maximum": 900,
+            "minimum": 1
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StageKind"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "maximum": 90,
+            "minimum": -90
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "maximum": 180,
+            "minimum": -180
+          },
+          "radius_m": {
+            "type": "number",
+            "format": "double",
+            "maximum": 1000,
+            "minimum": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "DecisionRequest": {
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "properties": {
+          "decision": {
+            "$ref": "#/components/schemas/ReviewDecision"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1000
+          }
+        },
+        "additionalProperties": false
+      },
+      "FaceChallenge": {
+        "type": "object",
+        "required": [
+          "id",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "FaceChallengeRequest": {
+        "type": "object",
+        "required": [
+          "purpose"
+        ],
+        "properties": {
+          "purpose": {
+            "$ref": "#/components/schemas/ChallengePurpose"
+          },
+          "stage_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FaceEnrollmentMultipart": {
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "frame_0",
+          "frame_1",
+          "frame_2"
+        ],
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Face challenge UUID returned for this student."
+          },
+          "frame_0": {
+            "type": "string",
+            "format": "binary",
+            "description": "JPEG or PNG image; maximum 2 MiB."
+          },
+          "frame_1": {
+            "type": "string",
+            "format": "binary",
+            "description": "JPEG or PNG image; maximum 2 MiB."
+          },
+          "frame_2": {
+            "type": "string",
+            "format": "binary",
+            "description": "JPEG or PNG image; maximum 2 MiB."
+          }
+        },
+        "additionalProperties": false
+      },
+      "FaceEnrollmentReceipt": {
+        "type": "object",
+        "required": [
+          "enrolled"
+        ],
+        "properties": {
+          "enrolled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "LeaveMultipart": {
+        "type": "object",
+        "required": [
+          "reason",
+          "evidence"
+        ],
+        "properties": {
+          "evidence": {
+            "type": "string",
+            "format": "binary",
+            "description": "JPEG, PNG, or PDF attachment, limited to 5 MiB."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "Lesson": {
+        "type": "object",
+        "required": [
+          "id",
+          "course_id",
+          "title",
+          "starts_at",
+          "ends_at",
+          "created_at"
+        ],
+        "properties": {
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "course_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ends_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "LessonAttendance": {
+        "type": "object",
+        "required": [
+          "lesson_id",
+          "students"
+        ],
+        "properties": {
+          "lesson_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentAttendance"
+            }
+          }
+        }
+      },
+      "LessonDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Lesson"
+          },
+          {
+            "type": "object",
+            "required": [
+              "stages"
+            ],
+            "properties": {
+              "stages": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Stage"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "description": "Registered password length is 12–128 characters.",
+            "maxLength": 128,
+            "minLength": 12
+          },
+          "username": {
+            "type": "string",
+            "description": "Registered username after trimming and ASCII lowercasing.",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]{3,64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Page_Course": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "teacher_id",
+                "title",
+                "created_at"
+              ],
+              "properties": {
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "teacher_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Page_Lesson": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "course_id",
+                "title",
+                "starts_at",
+                "ends_at",
+                "created_at"
+              ],
+              "properties": {
+                "closed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "course_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "ends_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "starts_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "title": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Page_Review": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "lesson_id",
+                "user_id",
+                "kind",
+                "reason",
+                "status",
+                "created_at",
+                "has_evidence"
+              ],
+              "properties": {
+                "attempt_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "decision_note": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "has_evidence": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ReviewKind"
+                },
+                "lesson_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "reviewed_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
+                },
+                "reviewer_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/ReviewStatus"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Page_StudentRosterItem": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "user_id",
+                "student_no",
+                "display_name",
+                "joined_at"
+              ],
+              "properties": {
+                "display_name": {
+                  "type": "string"
+                },
+                "joined_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "student_no": {
+                  "type": "string"
+                },
+                "user_id": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ReasonCode": {
+        "type": "string",
+        "enum": [
+          "qr_missing",
+          "qr_unreadable",
+          "qr_expired",
+          "qr_wrong_stage",
+          "location_missing",
+          "location_invalid",
+          "location_inaccurate",
+          "location_outside",
+          "face_missing",
+          "face_unenrolled",
+          "face_not_single",
+          "face_spoof",
+          "face_mismatch"
+        ]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "display_name",
+          "role"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "Trimmed display name; 1–128 characters.",
+            "maxLength": 128,
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "Password length is 12–128 characters.",
+            "maxLength": 128,
+            "minLength": 12
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "Self-selected account role; a student requires student_no and a teacher must omit it."
+          },
+          "student_no": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Trimmed student number; required for students and absent or null for teachers.",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "username": {
+            "type": "string",
+            "description": "Normalized username: 3–64 ASCII letters, digits, dots, underscores, or hyphens.",
+            "maxLength": 64,
+            "minLength": 3,
+            "pattern": "^[A-Za-z0-9_.-]{3,64}$"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Review": {
+        "type": "object",
+        "required": [
+          "id",
+          "lesson_id",
+          "user_id",
+          "kind",
+          "reason",
+          "status",
+          "created_at",
+          "has_evidence"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decision_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_evidence": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ReviewKind"
+          },
+          "lesson_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reviewer_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ReviewStatus"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ReviewDecision": {
+        "type": "string",
+        "enum": [
+          "approve",
+          "reject"
+        ]
+      },
+      "ReviewKind": {
+        "type": "string",
+        "enum": [
+          "partial",
+          "late",
+          "leave"
+        ]
+      },
+      "ReviewStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "approved",
+          "rejected"
+        ]
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "student",
+          "teacher"
+        ]
+      },
+      "Stage": {
+        "type": "object",
+        "required": [
+          "id",
+          "ordinal",
+          "kind",
+          "opens_at",
+          "closes_at",
+          "latitude",
+          "longitude",
+          "radius_m"
+        ],
+        "properties": {
+          "closed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "closes_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StageKind"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "opens_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ordinal": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "radius_m": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "StageAttendance": {
+        "type": "object",
+        "required": [
+          "stage_id",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/StageKind"
+          },
+          "stage_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/StageResultStatus"
+          }
+        }
+      },
+      "StageKind": {
+        "type": "string",
+        "enum": [
+          "check_in",
+          "renew",
+          "check_out"
+        ]
+      },
+      "StageResultStatus": {
+        "type": "string",
+        "enum": [
+          "missing",
+          "failed",
+          "pending",
+          "passed"
+        ]
+      },
+      "StudentAttendance": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "status",
+          "is_late",
+          "stages"
+        ],
+        "properties": {
+          "attendance_success": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_late": {
+            "type": "boolean"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StageAttendance"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/AttendanceStatus"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "StudentRosterItem": {
+        "type": "object",
+        "required": [
+          "user_id",
+          "student_no",
+          "display_name",
+          "joined_at"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "student_no": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SubmittedLocation": {
+        "type": "object",
+        "required": [
+          "latitude",
+          "longitude",
+          "accuracy_m"
+        ],
+        "properties": {
+          "accuracy_m": {
+            "type": "number",
+            "format": "double",
+            "description": "Reported positive location accuracy in meters; insufficient accuracy fails the location factor."
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "description": "Reported WGS-84 latitude; invalid coordinates fail the location factor."
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "description": "Reported WGS-84 longitude; invalid coordinates fail the location factor."
+          }
+        },
+        "additionalProperties": false
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "role",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "student_no": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "aegis_session",
+        "description": "Opaque HttpOnly session cookie issued by POST /api/auth/login."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth"
+    },
+    {
+      "name": "courses"
+    },
+    {
+      "name": "stages"
+    },
+    {
+      "name": "attendance"
+    },
+    {
+      "name": "reviews"
+    },
+    {
+      "name": "summary"
+    },
+    {
+      "name": "system"
+    }
+  ]
+}
