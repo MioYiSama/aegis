@@ -1,0 +1,29 @@
+[package]
+name = "aegis-backend"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+aegis-core = { path = "../core", features = ["native-face"] }
+axum.workspace = true
+sqlx.workspace = true
+utoipa.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+argon2.workspace = true
+sha2.workspace = true
+rand.workspace = true
+base64.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tower-http.workspace = true
+image.workspace = true
+thiserror = "2"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+tempfile = "3"
+http-body-util = "0.1"

@@ -1,0 +1,17 @@
+[package]
+name = "aegis-core"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+native-face = ["dep:opencv", "dep:sha2"]
+
+[dependencies]
+image.workspace = true
+qrcode = { version = "=0.14.1", default-features = false }
+imageproc = { version = "=0.25.0", default-features = false }
+rqrr = "=0.10.0"
+thiserror = "2"
+sha2 = { workspace = true, optional = true }
+opencv = { version = "=0.101.0", default-features = false, features = ["clang-runtime", "dnn", "imgcodecs", "imgproc", "objdetect"], optional = true }

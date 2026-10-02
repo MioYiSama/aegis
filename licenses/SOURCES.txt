@@ -1,0 +1,26 @@
+Model license sources
+=====================
+
+YuNet (`face_detection_yunet_2023mar.onnx`)
+  License: MIT; upstream LICENSE from opencv/opencv_zoo/models/face_detection_yunet.
+  Source revision: 47534e27c9851bb1128ccc0102f1145e27f23f98
+  https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_detection_yunet/LICENSE
+  The model repository revision pinned by the model URL is 3cc26e7f1014a5ee5d74a42acee58bafc9d0a310.
+
+SFace (`face_recognition_sface_2021dec.onnx`)
+  License: Apache-2.0; upstream LICENSE from opencv/opencv_zoo/models/face_recognition_sface.
+  Source revision: 47534e27c9851bb1128ccc0102f1145e27f23f98
+  https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_recognition_sface/LICENSE
+  The model repository revision pinned by the model URL is 3d7082438a6e4551e840c9b2bb60b71e8da4b524.
+
+The plan listed `47534e27c9851b1128ccc0102f1145e27f23f98`, which is 39 characters
+and returns 404. The actual 40-character opencv_zoo `main` revision returned by
+GitHub's commits API and used for the two checked-in OpenCV Zoo LICENSE files is
+`47534e27c9851bb1128ccc0102f1145e27f23f98` (one additional `b` after `...c9851`).
+
+MiniFASNet (`2.7_80x80_MiniFASNetV2.onnx` and `4_0_0_80x80_MiniFASNetV1SE.onnx`)
+  Apache-2.0 LICENSE from Minivision's original repository at:
+  https://raw.githubusercontent.com/minivision-ai/Silent-Face-Anti-Spoofing/b6d5f04ad78778917853b25c778acef6d5626d15/LICENSE
+  The fixed ONNX conversion repository has the same LICENSE bytes (verified) at:
+  https://raw.githubusercontent.com/QingHeYang/Silent-Face-Anti-Spoofing-onnx/584d4421d7ac42c59e640796f46e886b0095367a/LICENSE
+  The checked-in copy retains the upstream `Copyright 2020 Minivision` attribution.

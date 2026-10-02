@@ -49,7 +49,82 @@
 
 ## 项目结构
 
-- `src`：Web 前端（React 19.3、React Router 8，orval）
-- `crates/core`：核心加解密算法、人脸算法（加解密算法参考/Users/mioyi/Documents/Code/Python/qr-code-lab）
-- `crates/wasm`：向前端提供核心算法
-- `crates/backend`：后端（Axum + utoipa），Auth使用session+单opaque token+RBAC
+- `src`（规划，未实现）：Web 前端（React 19.3、React Router 8，orval）
+- `crates/core`：Rust，无密钥色度二维码编解码与人脸算法（二维码兼容 /Users/mioyi/Documents/Code/Python/qr-code-lab）
+- `crates/wasm`（规划，未实现）：Rust，向前端提供核心算法
+- `crates/backend`：Rust，后端（Axum + utoipa），Auth使用session+单opaque token+RBAC
+
+## 本地后端运行
+
+已实现 `crates/core` 和 `crates/backend`；正常认证和推理完全离线。已验证环境为 macOS arm64、Rust 1.99.0、OpenCV 4.14.0 CPU。后端要求 OpenCV 4.10+ 的 **4.x**；`opencv` crate 会优先探测 `opencv5`，因此即使设置了 `PKG_CONFIG_PATH`，仍须明确指定 `OPENCV_PACKAGE_NAME=opencv4`。
+
+```sh
+brew install opencv@4 pkg-config
+export OPENCV_PACKAGE_NAME=opencv4
+export PKG_CONFIG_PATH="$(brew --prefix opencv@4)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+sh scripts/fetch-models.sh models
+RUST_LOG=info cargo run -p aegis-backend
+curl --fail http://localhost:3000/readyz
+curl --fail http://localhost:3000/api/openapi.json
+```
+
+首次模型准备需要 `curl`、`shasum`、Python 3 和网络。下载脚本使用固定版本，先核验大小、SHA-256 或 Git blob SHA-1，再安装文件并生成 `checksums.sha256`。每次启动重新校验四个模型，并对两个独立推理实例实际执行 forward；缺模型、摘要不匹配或配置无效时退出，不提供降级认证。模型和校验清单都应由可信管理员维护；清单不能抵御攻击者同时替换模型及清单。
+
+| 环境变量 | 默认值 |
+| --- | --- |
+| `AEGIS_BIND` | `127.0.0.1:3000` |
+| `DATABASE_URL` | `sqlite://data/aegis.db` |
+| `AEGIS_ORIGIN` | `http://localhost:3000` |
+| `AEGIS_COOKIE_SECURE` | `false` |
+| `AEGIS_MODEL_DIR` | `models` |
+
+SQLite 自动建库、迁移并创建父目录，启用 WAL、外键和 5 秒锁等待，连接池上限 8；锁等待超时返回 `503 busy`，不自动重试。两个独立人脸 worker 的等待队列容量为 16，满队列拒绝提交。公网部署必须采用 HTTPS、同源反向代理及 `AEGIS_COOKIE_SECURE=true`；`AEGIS_ORIGIN` 不含尾随 `/`。
+
+### API 契约与输入
+
+完整接口定义由 `GET /api/openapi.json` 提供，真实 HTTP 已核验 OpenAPI 3.1.0 的 26 个路径、29 个唯一操作及 cookie、Origin、分页、文件编码和错误契约。业务覆盖会话、教师课程与名单、课次阶段及投屏、学生人脸登记与考勤提交、人工审核、附件和最终汇总；`GET /healthz` 是存活检查，`GET /readyz` 检查数据库及已加载模型。列表 `courses/lessons/students/reviews` 采用 `{items,total}`，`limit=1..100`（默认 50）、`offset>=0`（默认 0）；考勤汇总返回完整可见快照，不分页。
+
+登记 multipart 字段为 `challenge_id`、`frame_0..2`；考勤字段为 JSON 字符串 `payload`、可选 `frame_0..2`、常规签到才允许的 `qr_image`。JPEG/PNG 单图最多 2 MiB，解码宽高分别最多 1920，按 EXIF 方向处理；multipart 最多 12 MiB，JSON/文本字段最多 16 KiB。请假使用 `reason` 和 JPEG/PNG/PDF `evidence`，附件最多 5 MiB，校验 MIME 与魔数，仅本人及所属教师可下载。未知/重复字段及非法协议返回 `422 invalid_input`；过大输入返回 `413 invalid_input`。考勤请求不能指定 actor、因素通过值或服务端时间。
+
+用户、考勤和审核响应不含密码摘要、session 摘要、人脸模板、模型分数或上传的认证原图；附件只在授权下载接口返回。首次登记后没有自助替换人脸接口。定位通过条件为 `distance + accuracy_m <= radius_m` 且 `0 < accuracy_m <= radius_m`；单帧身份 cosine 至少 0.363，双活体模型平均的真人概率至少 0.90，三帧均须通过。
+
+### 回归命令
+
+保留上面的 OpenCV 环境变量，运行：
+
+```sh
+cargo test -p aegis-core --test qr_contract
+cargo test -p aegis-backend --test attendance_policy
+cargo test -p aegis-backend --test review_transactions
+cargo test -p aegis-backend --test session_access
+cargo test --workspace
+```
+
+固定模型的上游许可证和署名保存在 `licenses/`，来源、版本及修正的 OpenCV Zoo commit 记录于 `licenses/SOURCES.txt`。YuNet 为 MIT；SFace、MiniFASNet 原项目和社区 ONNX 转换项目为 Apache-2.0。社区转换不代表上游官方认证。
+
+## 本地后端安全边界
+
+- 认证采用 SQLite 持久化 session：每账号仅一个 opaque cookie，固定七天过期，新登录撤销旧会话。密码使用带随机盐的 Argon2id；数据库仅保存 token 的 SHA-256 摘要。
+- 所有变更请求（包括注册、登录、CLI 调用）必须发送与 `AEGIS_ORIGIN` 完全一致的 `Origin`。浏览器使用同源反向代理，不开放任意 CORS。
+- 学生与教师均可自主注册；系统不证明自报教师身份或初次登记者的学籍身份，课程教师负责名单核对。
+- 色度二维码是无密钥的易损载波，不是密码学加密；定位结果不能证明卫星数据真实，人脸被动活体和一次性 nonce 不能证明媒体来自新鲜摄像头。
+
+## 已验证行为与边界
+
+### 二维码
+
+纯 Rust QR 核心经固定 Python 参考双向编解码验证；20 个 32 字符 token 的原载波和 `camera_photo(seed=0..19)` 模拟图均精确恢复 20/20。FFmpeg 9.0.2 下采样 4 倍、yuv420p，H.264（libx264/medium/crf28）、HEVC（libx265/medium/crf30）、AV1（libsvtav1/preset8/crf35）各精确恢复 0/20。此结果仅覆盖这些固定模拟参数，**未验证真实屏摄与会议转播**，不保证所有视频链路均无法传播。
+
+### 人脸
+
+本地人脸核心在 OpenCV 4.14.0 CPU 上实际加载四个固定模型并执行 forward。公开 T1 样本重复三次登记及本人验证通过（真人平均概率 0.99987447）；F1/F2 均被活体策略拒绝，白图和双人拼图均返回 `NotSingleFace`。T1/F1 的 SFace cosine 为 0.19191870，低于 0.363。样本遵守 JPEG EXIF 朝向；这些检查证明本地推理与策略集成，不证明新鲜摄像头输入或两个不同自然人的误识别率。
+
+真实 HTTP 集成的多个隔离测试账号使用同一公开 T1 回归输入，**不是不同自然人或实时活体验收**。尚无两名同意者各至少三张独立照片，未验证这项物理边界。合法极小图片（1×1、1×80、80×1、2×2、31×31）已确认是 `face=false / face_not_single`，不是 `503 factor_unavailable`；二维码及定位通过时仍可显式申请部分审核，登记此类图片返回 422。
+
+### 业务状态
+
+教师维护课程名单，学生不能自主加入课程。首次签到事务冻结名单，后续退课不会修改课次历史。课次支持一次签到、任意已发起的续签及一次签退；窗口不可重叠，签退后不能再开启阶段。投屏二维码仅所属教师可取，按 5 秒 slot 更新，提前关闭后立即失效，响应禁止缓存。名单、越权、快照及阶段转换已通过真实 HTTP 进程烟测。
+
+正常签到三因素全通过自动成功，恰好两因素通过仅获得申请资格；只有显式提交申请后才进入人工审核。续签和签退只需定位、人脸，均不开放部分审核例外。签到窗口关闭后的迟到候选截止于课次预定开始时间 +15 分钟，仍须教师批准。汇总要求所有实际发起的阶段成功；批准请假覆盖最终结果，但不删除阶段证据。真实 HTTP 已验证登记、三因素签到、部分审核、续签、签退、迟到、请假及附件越权；自然结束时的在途提交被拒绝，SQLite 写锁等待后返回 `503 busy`。
+
+`cargo test --workspace` 已通过 20 个回归用例。重启真实服务后，既有 cookie、课程、审核与最终汇总均保留；新构建的服务再次完成真实 T1 登记、三因素签到、无二维码续签/签退及 `present/true` 汇总。HTTP 还核验了未知/重复字段、非法 MIME/图像尺寸、单图/文本/附件大小、跨学生 nonce、迟到及续签禁传二维码、分页边界；合法 2.7 MiB multipart 不受 Axum 默认 2 MiB 上限误伤。
