@@ -103,8 +103,11 @@ export function useCaptureSession() {
           audio: false,
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 720, max: 1920 },
-            height: { ideal: 1280, max: 1920 },
+            // Preserve the fine color chips when scanning a screen. Request
+            // the highest supported resolution within the decoder's bounds;
+            // front-camera face capture keeps its existing size.
+            width: { ideal: mode === "environment" ? 1920 : 720, max: 1920 },
+            height: { ideal: mode === "environment" ? 1920 : 1280, max: 1920 },
             aspectRatio: { ideal: 9 / 16 },
           },
         })

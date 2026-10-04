@@ -23,6 +23,8 @@ const OUTPUT_MODULE_PIXELS: usize = 8;
 const OUTPUT_QUIET_MODULES: usize = 4;
 const ALIGNMENT_GATE_HITS: u16 = 106;
 const MAX_QUIET_SCAN: usize = 8;
+const PHASE_GRID: usize = 9;
+const MAX_PHASE_ATTEMPTS: usize = 8;
 const COLOR_LIGHT: [u8; 3] = [210, 74, 120];
 const COLOR_DARK: [u8; 3] = [30, 166, 120];
 const FINDER: [[bool; 7]; 7] = [
@@ -105,6 +107,11 @@ pub fn encode_chroma(payload: &str) -> Result<RgbImage, QrError> {
 
 /// Recover QR text from a photograph of the chroma carrier.
 pub fn decode_chroma(photo: &RgbImage) -> Result<String, QrError> {
+    decode_chroma_region(photo).map(|(payload, _)| payload)
+}
+
+/// Recover QR text and the carrier's bounding rectangle in original pixels.
+pub fn decode_chroma_region(photo: &RgbImage) -> Result<(String, [u32; 4]), QrError> {
     if photo.width() < 3 || photo.height() < 3 {
         return Err(QrError::Unreadable);
     }
@@ -113,24 +120,7 @@ pub fn decode_chroma(photo: &RgbImage) -> Result<String, QrError> {
     }
     let gray = grayscale_rec601(photo);
     let quads = detect_frame_quads(&gray);
-    if quads.is_empty() {
-        return Err(QrError::Unreadable);
-    }
-    let mut hypotheses = search_hypotheses(photo, &quads);
-    hypotheses.sort_by(|left, right| right.hits.cmp(&left.hits));
-    for hypothesis in hypotheses
-        .iter()
-        .filter(|hypothesis| hypothesis.hits >= ALIGNMENT_GATE_HITS)
-        .take(5)
-    {
-        let Some(symbol) = render_symbol(hypothesis) else {
-            continue;
-        };
-        if let Some(text) = decode_standard_qr(symbol) {
-            return Ok(text);
-        }
-    }
-    Err(QrError::Unreadable)
+    decode_frame_candidates(photo, &quads).ok_or(QrError::Unreadable)
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -151,11 +141,15 @@ struct FrameQuad {
 fn grayscale_rec601(image: &RgbImage) -> GrayImage {
     let mut gray = GrayImage::new(image.width(), image.height());
     for (source, target) in image.pixels().zip(gray.pixels_mut()) {
-        let [red, green, blue] = source.0;
-        let value = 0.299 * f64::from(red) + 0.587 * f64::from(green) + 0.114 * f64::from(blue);
-        target.0[0] = value.round().clamp(0.0, 255.0) as u8;
+        target.0[0] = luma_rec601(source);
     }
     gray
+}
+
+fn luma_rec601(pixel: &Rgb<u8>) -> u8 {
+    let [red, green, blue] = pixel.0;
+    let value = 0.299 * f64::from(red) + 0.587 * f64::from(green) + 0.114 * f64::from(blue);
+    value.round().clamp(0.0, 255.0) as u8
 }
 
 fn percentile(histogram: &[usize; 256], count: usize, percent: f64) -> f64 {
@@ -190,12 +184,14 @@ fn sampled_quantiles(gray: &GrayImage) -> (f64, f64) {
     }
     (
         percentile(&histogram, count, 1.0),
-        percentile(&histogram, count, 50.0),
+        // The white frame occupies much less of a camera view than the scene.
+        // A scene median (or even p90) can be darker than the carrier's ring.
+        percentile(&histogram, count, 99.0),
     )
 }
 
 fn detect_frame_quads(gray: &GrayImage) -> Vec<FrameQuad> {
-    let (dark, middle) = sampled_quantiles(gray);
+    let (dark, bright) = sampled_quantiles(gray);
     let width = gray.width() as usize;
     let height = gray.height() as usize;
     let min_area = 0.002 * (width * height) as f64;
@@ -203,8 +199,8 @@ fn detect_frame_quads(gray: &GrayImage) -> Vec<FrameQuad> {
     let mut other = Vec::new();
     let mut seen: HashSet<[i32; 8]> = HashSet::new();
 
-    for factor in [0.35, 0.6] {
-        let threshold = dark + factor * (middle - dark);
+    for factor in [0.35, 0.6, 0.8, 0.95] {
+        let threshold = dark + factor * (bright - dark);
         if threshold - dark < 1.0 {
             continue;
         }
@@ -304,10 +300,101 @@ fn contour_quad(contour: &Contour<i32>) -> Option<Quad> {
             maximum = maximum.max(length);
         }
         if minimum > 0.0 && maximum / minimum <= 2.0 {
-            return Some(quad);
+            return Some(fit_quad_edges(points, &quad).unwrap_or(quad));
         }
     }
     None
+}
+
+#[derive(Clone, Copy, Default)]
+struct LineMoments {
+    count: usize,
+    x: f64,
+    y: f64,
+    xx: f64,
+    xy: f64,
+    yy: f64,
+}
+
+fn fit_quad_edges(points: &[Point<i32>], quad: &Quad) -> Option<Quad> {
+    // Polygon simplification selects integer contour vertices. A subpixel
+    // error there moves the high-frequency chip grid across the entire image.
+    // Fit each straight edge from its interior, then intersect adjacent lines.
+    let mut moments = [LineMoments::default(); 4];
+    for point in points {
+        let x = f64::from(point.x);
+        let y = f64::from(point.y);
+        let mut nearest = None;
+        let mut minimum_distance = f64::INFINITY;
+        for edge in 0..4 {
+            let start = quad[edge];
+            let end = quad[(edge + 1) % 4];
+            let dx = end.x - start.x;
+            let dy = end.y - start.y;
+            let length_squared = dx * dx + dy * dy;
+            let position = ((x - start.x) * dx + (y - start.y) * dy) / length_squared;
+            if !(0.1..=0.9).contains(&position) {
+                continue;
+            }
+            let cross = (x - start.x) * dy - (y - start.y) * dx;
+            let distance = cross * cross / length_squared;
+            if distance <= length_squared * 0.0009 && distance < minimum_distance {
+                minimum_distance = distance;
+                nearest = Some(edge);
+            }
+        }
+        if let Some(edge) = nearest {
+            let sums = &mut moments[edge];
+            sums.count += 1;
+            sums.x += x;
+            sums.y += y;
+            sums.xx += x * x;
+            sums.xy += x * y;
+            sums.yy += y * y;
+        }
+    }
+    let mut lines = [(0.0, 0.0, 0.0); 4];
+    for (edge, sums) in moments.iter().enumerate() {
+        if sums.count < 8 {
+            return None;
+        }
+        let count = sums.count as f64;
+        let x = sums.x / count;
+        let y = sums.y / count;
+        let xx = sums.xx / count - x * x;
+        let xy = sums.xy / count - x * y;
+        let yy = sums.yy / count - y * y;
+        let angle = 0.5 * (2.0 * xy).atan2(xx - yy);
+        let (sin, cos) = angle.sin_cos();
+        let (a, b) = (-sin, cos);
+        lines[edge] = (a, b, a * x + b * y);
+    }
+    let mut refined = *quad;
+    for corner in 0..4 {
+        let (a, b, c) = lines[(corner + 3) % 4];
+        let (d, e, f) = lines[corner];
+        let denominator = a * e - d * b;
+        if denominator.abs() < 1e-6 {
+            return None;
+        }
+        let point = PointF {
+            x: (c * e - f * b) / denominator,
+            y: (a * f - d * c) / denominator,
+        };
+        let old = quad[corner];
+        let previous = quad[(corner + 3) % 4];
+        let next = quad[(corner + 1) % 4];
+        let edge_squared = ((old.x - previous.x).powi(2) + (old.y - previous.y).powi(2))
+            .min((old.x - next.x).powi(2) + (old.y - next.y).powi(2));
+        if !point.x.is_finite()
+            || !point.y.is_finite()
+            || (point.x - old.x).powi(2) + (point.y - old.y).powi(2) > edge_squared * 0.0025
+        {
+            return None;
+        }
+        refined[corner] = point;
+    }
+    Some(refined)
 }
 
 fn approximate_closed_curve(points: &[Point<i32>], epsilon: f64) -> Option<Vec<Point<i32>>> {
@@ -458,7 +545,6 @@ fn quads_nested(outer: &Quad, inner: &Quad) -> bool {
 
 #[derive(Debug)]
 struct Hypothesis {
-    hits: u16,
     modules: usize,
     quiet: usize,
     rotation: usize,
@@ -466,37 +552,65 @@ struct Hypothesis {
     correlations: Vec<f32>,
 }
 
-fn search_hypotheses(photo: &RgbImage, quads: &[FrameQuad]) -> Vec<Hypothesis> {
-    let mut found = Vec::with_capacity(20);
+fn decode_frame_candidates(photo: &RgbImage, quads: &[FrameQuad]) -> Option<(String, [u32; 4])> {
     for frame_quad in quads {
-        let mut stop = false;
         for modules in [37, 45, 29, 41, 33] {
             let Some(frame) = warp_frame(photo, &frame_quad.quad, modules, frame_quad.inset) else {
                 continue;
             };
-            if !frame_is_plausible(&frame, modules) {
+            if !frame_is_plausible(&frame) {
                 continue;
             }
             let correlations = module_correlations(&frame, modules);
             let (hits, quiet, rotation, polarity) = align_grid(&correlations, modules);
-            found.push(Hypothesis {
-                hits,
+            if hits < ALIGNMENT_GATE_HITS {
+                continue;
+            }
+            let hypothesis = Hypothesis {
                 modules,
                 quiet,
                 rotation,
                 polarity,
                 correlations,
-            });
-            if hits >= ALIGNMENT_GATE_HITS {
-                stop = true;
-                break;
+            };
+            // Finder agreement is only alignment evidence. A damaged candidate
+            // must not prevent trying the remaining frames and module sizes.
+            if let Some(text) = render_symbol(&hypothesis).and_then(decode_standard_qr) {
+                return Some((text, carrier_bounds(photo, &frame_quad.quad)));
+            }
+            if let Some(text) = refine_symbol_phase(&frame, &hypothesis) {
+                return Some((text, carrier_bounds(photo, &frame_quad.quad)));
             }
         }
-        if stop {
-            break;
-        }
     }
-    found
+    None
+}
+
+fn carrier_bounds(photo: &RgbImage, quad: &Quad) -> [u32; 4] {
+    let min_x = quad
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::INFINITY, f64::min);
+    let min_y = quad
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::INFINITY, f64::min);
+    let max_x = quad
+        .iter()
+        .map(|point| point.x)
+        .fold(f64::NEG_INFINITY, f64::max);
+    let max_y = quad
+        .iter()
+        .map(|point| point.y)
+        .fold(f64::NEG_INFINITY, f64::max);
+    // Include the full outer margin and a small contour/perspective allowance.
+    // No resampling: the server receives exactly the detected camera pixels.
+    let padding = (max_x - min_x).max(max_y - min_y) * 0.06 + 2.0;
+    let left = (min_x - padding).floor().max(0.0) as u32;
+    let top = (min_y - padding).floor().max(0.0) as u32;
+    let right = (max_x + padding).ceil().min(f64::from(photo.width())) as u32;
+    let bottom = (max_y + padding).ceil().min(f64::from(photo.height())) as u32;
+    [left, top, right - left, bottom - top]
 }
 
 fn warp_frame(photo: &RgbImage, quad: &Quad, modules: usize, inset: f32) -> Option<RgbImage> {
@@ -546,8 +660,7 @@ fn warp_frame(photo: &RgbImage, quad: &Quad, modules: usize, inset: f32) -> Opti
     Some(warped)
 }
 
-fn frame_is_plausible(frame: &RgbImage, modules: usize) -> bool {
-    let gray = grayscale_rec601(frame);
+fn frame_is_plausible(frame: &RgbImage) -> bool {
     let side = frame.width() as usize;
     let offset = PAYLOAD_OFFSET;
     let edge = side - offset;
@@ -557,15 +670,19 @@ fn frame_is_plausible(frame: &RgbImage, modules: usize) -> bool {
         let mut count = 0_u64;
         for y in start..end {
             for x in offset..edge {
-                sum += u64::from(gray.get_pixel(x as u32, y as u32).0[0]);
-                sum += u64::from(gray.get_pixel(x as u32, (side - end + y - start) as u32).0[0]);
+                sum += u64::from(luma_rec601(frame.get_pixel(x as u32, y as u32)));
+                sum += u64::from(luma_rec601(
+                    frame.get_pixel(x as u32, (side - end + y - start) as u32),
+                ));
                 count += 2;
             }
         }
         for x in start..end {
             for y in offset..edge {
-                sum += u64::from(gray.get_pixel(x as u32, y as u32).0[0]);
-                sum += u64::from(gray.get_pixel((side - end + x - start) as u32, y as u32).0[0]);
+                sum += u64::from(luma_rec601(frame.get_pixel(x as u32, y as u32)));
+                sum += u64::from(luma_rec601(
+                    frame.get_pixel((side - end + x - start) as u32, y as u32),
+                ));
                 count += 2;
             }
         }
@@ -574,15 +691,9 @@ fn frame_is_plausible(frame: &RgbImage, modules: usize) -> bool {
 
     let ring = mean_band(MARGIN_PIXELS + 2, MARGIN_PIXELS + BORDER_PIXELS - 2);
     let gap = mean_band(MARGIN_PIXELS + BORDER_PIXELS + 2, PAYLOAD_OFFSET - 2);
-    let mut payload_sum = 0_u64;
-    let payload_side = modules * MODULE_PIXELS;
-    for y in offset..offset + payload_side {
-        for x in offset..offset + payload_side {
-            payload_sum += u64::from(gray.get_pixel(x as u32, y as u32).0[0]);
-        }
-    }
-    let payload_mean = payload_sum as f64 / (payload_side * payload_side) as f64;
-    ring + 15.0 < gap && ring + 15.0 < payload_mean
+    // The payload uses different colors, so its brightness is not evidence of
+    // a black ring. Exposure and blur can make the thin ring brighter than it.
+    ring + 15.0 < gap
 }
 
 fn module_correlations(frame: &RgbImage, modules: usize) -> Vec<f32> {
@@ -608,6 +719,132 @@ fn module_correlations(frame: &RgbImage, modules: usize) -> Vec<f32> {
     correlations
 }
 
+struct Phase {
+    x: f32,
+    y: f32,
+    score: f32,
+}
+
+fn rank_phases(frame: &RgbImage, hypothesis: &Hypothesis) -> [Phase; PHASE_GRID * PHASE_GRID] {
+    // Half-pixel steps within half a chip. Larger shifts can invert the carrier
+    // phase and are not a substitute for finding the correct frame/grid.
+    let centre = (PHASE_GRID / 2) as f32;
+    let mut phases = std::array::from_fn(|index| {
+        let x = (index % PHASE_GRID) as f32 * 0.5 - centre * 0.5;
+        let y = (index / PHASE_GRID) as f32 * 0.5 - centre * 0.5;
+        let mut score = 0.0;
+        let symbol_size = hypothesis.modules - 2 * hypothesis.quiet;
+        for &(row_offset, col_offset) in &[(0, 0), (0, symbol_size - 7), (symbol_size - 7, 0)] {
+            for row in 0..7 {
+                for col in 0..7 {
+                    let (source_row, source_col) = module_position(
+                        hypothesis.modules,
+                        hypothesis.rotation,
+                        hypothesis.quiet + row_offset + row,
+                        hypothesis.quiet + col_offset + col,
+                    );
+                    let value = chip_correlation(frame, source_row, source_col, x, y);
+                    score += if FINDER[row][col] ^ hypothesis.polarity {
+                        -value
+                    } else {
+                        value
+                    };
+                }
+            }
+        }
+        Phase { x, y, score }
+    });
+    phases.sort_unstable_by(|left, right| right.score.total_cmp(&left.score));
+    phases
+}
+
+fn refine_symbol_phase(frame: &RgbImage, hypothesis: &Hypothesis) -> Option<String> {
+    // Keep the original decoder as the fast path. Only a plausible, aligned
+    // symbol that failed QR error correction needs this bounded phase search.
+    for phase in rank_phases(frame, hypothesis)
+        .iter()
+        .take(MAX_PHASE_ATTEMPTS)
+    {
+        if phase.score <= 0.0 {
+            break;
+        }
+        let modules = hypothesis.modules;
+        let mut correlations = vec![0.0; modules * modules];
+        for row in 0..modules {
+            for col in 0..modules {
+                correlations[row * modules + col] =
+                    chip_correlation(frame, row, col, phase.x, phase.y);
+            }
+        }
+        if finder_hits(
+            &correlations,
+            modules,
+            hypothesis.quiet,
+            hypothesis.rotation,
+            hypothesis.polarity,
+        ) < ALIGNMENT_GATE_HITS
+        {
+            continue;
+        }
+        let refined = Hypothesis {
+            modules,
+            quiet: hypothesis.quiet,
+            rotation: hypothesis.rotation,
+            polarity: hypothesis.polarity,
+            correlations,
+        };
+        if let Some(text) = render_symbol(&refined).and_then(decode_standard_qr) {
+            return Some(text);
+        }
+    }
+    None
+}
+
+fn chip_correlation(frame: &RgbImage, row: usize, col: usize, dx: f32, dy: f32) -> f32 {
+    let origin_x = (PAYLOAD_OFFSET + col * MODULE_PIXELS) as f32 + dx;
+    let origin_y = (PAYLOAD_OFFSET + row * MODULE_PIXELS) as f32 + dy;
+    let mut sum = 0.0;
+    let chips = MODULE_PIXELS / CHIP_PIXELS;
+    let centre = (CHIP_PIXELS - 1) as f32 * 0.5;
+    for y in 0..chips {
+        for x in 0..chips {
+            // Chip interiors avoid mixing opposite colors at a blurred edge.
+            let signal = sample_chroma(
+                frame,
+                origin_x + (x * CHIP_PIXELS) as f32 + centre,
+                origin_y + (y * CHIP_PIXELS) as f32 + centre,
+            );
+            sum += if (x + y) & 1 == 0 { signal } else { -signal };
+        }
+    }
+    sum / (chips * chips) as f32
+}
+
+fn sample_chroma(frame: &RgbImage, x: f32, y: f32) -> f32 {
+    // The payload margin and bounded phase shift keep all four samples inside
+    // the canonical frame, so no per-sample clamping/allocation is needed.
+    let left = x.floor() as u32;
+    let top = y.floor() as u32;
+    let signal = |x, y| {
+        let pixel = frame.get_pixel(x, y);
+        f32::from(pixel.0[0]) - f32::from(pixel.0[1])
+    };
+    let horizontal = x - left as f32;
+    let vertical = y - top as f32;
+    let upper = signal(left, top) * (1.0 - horizontal) + signal(left + 1, top) * horizontal;
+    let lower = signal(left, top + 1) * (1.0 - horizontal) + signal(left + 1, top + 1) * horizontal;
+    upper * (1.0 - vertical) + lower * vertical
+}
+
+fn module_position(size: usize, rotation: usize, row: usize, col: usize) -> (usize, usize) {
+    match rotation {
+        0 => (row, col),
+        1 => (col, size - 1 - row),
+        2 => (size - 1 - row, size - 1 - col),
+        _ => (size - 1 - col, row),
+    }
+}
+
 fn bit_at_rotation(
     correlations: &[f32],
     size: usize,
@@ -615,12 +852,7 @@ fn bit_at_rotation(
     row: usize,
     col: usize,
 ) -> bool {
-    let (source_row, source_col) = match rotation {
-        0 => (row, col),
-        1 => (col, size - 1 - row),
-        2 => (size - 1 - row, size - 1 - col),
-        _ => (size - 1 - col, row),
-    };
+    let (source_row, source_col) = module_position(size, rotation, row, col);
     correlations[source_row * size + source_col] < 0.0
 }
 
