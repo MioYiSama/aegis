@@ -1,3 +1,5 @@
+use tower_http::services::{ServeDir, ServeFile};
+
 pub mod access;
 pub mod api;
 pub mod attendance;
@@ -48,6 +50,20 @@ pub async fn build_app(config: Config) -> Result<axum::Router, StartupError> {
         .merge(reviews::router(pool.clone(), config))
         .route("/healthz", axum::routing::get(health))
         .route("/readyz", axum::routing::get(ready))
+        .route(
+            "/api",
+            axum::routing::any(|| async { axum::http::StatusCode::NOT_FOUND }),
+        )
+        .route(
+            "/api/",
+            axum::routing::any(|| async { axum::http::StatusCode::NOT_FOUND }),
+        )
+        .route(
+            "/api/{*path}",
+            axum::routing::any(|| async { axum::http::StatusCode::NOT_FOUND }),
+        )
+        .nest_service("/assets", ServeDir::new("dist/assets"))
+        .fallback_service(ServeDir::new("dist").fallback(ServeFile::new("dist/index.html")))
         .layer(axum::Extension(pool))
         .layer(axum::Extension(workers)))
 }

@@ -148,7 +148,16 @@ npm run preview
 
 ### 生产部署
 
-使用 HTTPS 同源反向代理提供 `dist/` 静态资源及后端接口；SPA 深层页面路径回退 `index.html`，`/api`、`/healthz`、`/readyz` 交给后端。正确提供 module worker、字体及 `.wasm` 资源，WASM 的 Content-Type 为 `application/wasm`。设置 `AEGIS_ORIGIN` 为真实页面源（无尾随 `/`）、`AEGIS_COOKIE_SECURE=true`。Vite preview 仅用于本机构建验收，不作为生产服务器；不需要扩展 Axum 静态托管或开放跨源 API。
+后端直接托管进程工作目录下的 `dist/`，从项目根目录构建并启动即可通过 **http://localhost:3000** 访问前端：
+
+```sh
+npm run build
+RUST_LOG=info cargo run -p aegis-backend
+```
+
+SPA 深层页面路径回退 `dist/index.html`；`/assets` 中缺失的资源和未知 `/api` 路径返回 404，不回退页面。`/api`、`/healthz`、`/readyz` 保留后端接口行为，module worker、字体及 `.wasm` 按正确 MIME 提供，WASM 的 Content-Type 为 `application/wasm`。无需 Vite preview 或单独的静态资源服务器；未构建 `dist/` 时前端返回 404，API 仍可使用。
+
+公网部署使用 HTTPS 反向代理转发全部请求至后端，设置 `AEGIS_ORIGIN` 为真实页面源（无尾随 `/`）、`AEGIS_COOKIE_SECURE=true`。Vite preview 仅用于本机构建验收，不作为生产服务器；不开放跨源 API。
 
 ### 前端软件验收
 
