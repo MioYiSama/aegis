@@ -1,8 +1,11 @@
 import { useRef, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   attendanceEnrollFace,
   attendanceIssueFaceChallenge,
+  getAttendanceGetFaceEnrollmentQueryKey,
+  useAttendanceGetFaceEnrollment,
 } from "@/api/generated/client"
 import { ApiRequestError } from "@/api/http"
 import {
@@ -10,49 +13,62 @@ import {
   ErrorState,
   Link,
   PageHeader,
+  LoadingRows,
   errorMessage,
 } from "@/components/common"
-import { captureFaceFrames, validateUploadSize } from "./media"
+import { validateUploadSize } from "./media"
 import { useCaptureSession } from "./useCaptureSession"
+import { useFaceCapture } from "./useFaceCapture"
+import { FaceCaptureStatus } from "./FaceCaptureStatus"
 
 const ATTENDANCE_RETURN_PATH =
   /^\/student\/lessons\/[^/?#]+\/attend\/[^/?#]+(?:\?.*)?$/
 
-type EnrollmentStep = "idle" | "camera" | "frames" | "submitting" | "enrolled"
+type EnrollmentStep = "idle" | "camera" | "aligning" | "frames" | "submitting" | "enrolled"
 
 export function EnrollPage() {
   const media = useCaptureSession()
+  const face = useFaceCapture()
+  const queryClient = useQueryClient()
+  const enrollmentQuery = useAttendanceGetFaceEnrollment({
+    query: { staleTime: 0 },
+    request: { cache: "no-store" },
+  })
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const returnParam = searchParams.get("returnTo")
   const returnPath =
     returnParam && ATTENDANCE_RETURN_PATH.test(returnParam) ? returnParam : null
   const [step, setStep] = useState<EnrollmentStep>("idle")
-  const [frameCount, setFrameCount] = useState(0)
   const [error, setError] = useState<Error | null>(null)
   const operationRef = useRef(false)
-  const busy = step === "camera" || step === "frames" || step === "submitting"
+  const busy = step === "camera" || step === "aligning" || step === "frames" || step === "submitting"
+  const enrolled = step === "enrolled" || enrollmentQuery.data?.enrolled === true
+  const canStart =
+    enrollmentQuery.isSuccess &&
+    !enrollmentQuery.isFetching &&
+    enrollmentQuery.data.enrolled === false &&
+    !enrolled
 
   async function startEnrollment() {
-    if (busy || operationRef.current || step === "enrolled") return
+    if (busy || operationRef.current || !canStart) return
     operationRef.current = true
     setError(null)
-    setFrameCount(0)
+    face.reset()
     const controller = media.beginSession()
     try {
       setStep("camera")
       await media.startCamera("user", controller.signal)
+      setStep("aligning")
+      await face.prepare(controller.signal)
       const challenge = await attendanceIssueFaceChallenge(
         { purpose: "enroll" },
         { signal: controller.signal },
       )
       setStep("frames")
-      const frames = await captureFaceFrames(
-        media.videoRef.current!,
-        controller.signal,
-        setFrameCount,
-      )
+      const frames = await face.capture(media.videoRef.current!, controller.signal)
       validateUploadSize(frames)
+      media.stopCamera()
       setStep("submitting")
       const receipt = await attendanceEnrollFace(
         {
@@ -65,10 +81,12 @@ export function EnrollPage() {
       )
       media.stopSession()
       if (receipt.enrolled) {
+        await queryClient.cancelQueries({ queryKey: getAttendanceGetFaceEnrollmentQueryKey() })
+        queryClient.setQueryData(getAttendanceGetFaceEnrollmentQueryKey(), receipt)
         setStep("enrolled")
       } else {
         setStep("idle")
-        setError(new Error("服务器尚未确认登记成功，请重新开始采集"))
+        setError(new Error("人脸登记未成功：服务器尚未确认登记，请重新开始采集。"))
       }
     } catch (cause) {
       media.stopSession()
@@ -79,10 +97,12 @@ export function EnrollPage() {
         cause.status === 409 &&
         cause.message.includes("Face is already enrolled")
       ) {
-        setError(new Error("该账号已完成人脸登记，首次登记后不能自行替换。"))
+        await queryClient.cancelQueries({ queryKey: getAttendanceGetFaceEnrollmentQueryKey() })
+        queryClient.setQueryData(getAttendanceGetFaceEnrollmentQueryKey(), { enrolled: true })
+        setStep("enrolled")
       } else {
         setError(
-          cause instanceof Error ? cause : new Error(errorMessage(cause)),
+          new Error(`人脸登记未成功：${errorMessage(cause)}。请根据提示处理后重新开始。`),
         )
       }
     } finally {
@@ -91,10 +111,10 @@ export function EnrollPage() {
   }
 
   function cancelEnrollment() {
-    if (step !== "camera" && step !== "frames") return
+    if (step !== "camera" && step !== "aligning" && step !== "frames") return
     media.stopSession()
     setError(new Error("采集已取消。下一次开始会获取新的登记挑战。"))
-    setFrameCount(0)
+    face.reset()
     setStep("idle")
   }
 
@@ -106,6 +126,18 @@ export function EnrollPage() {
         </Link>
       </div>
       <PageHeader title="人脸登记" description="仅首次登记，不能自助替换。" />
+      {enrollmentQuery.isPending ? (
+        <LoadingRows />
+      ) : enrollmentQuery.error ? (
+        <ErrorState
+          error={new Error(`无法查询人脸登记状态：${errorMessage(enrollmentQuery.error)}`)}
+          retry={() => { void enrollmentQuery.refetch() }}
+        />
+      ) : !enrolled && !busy ? (
+        <p role="status" className="rounded-lg border p-4 text-sm">
+          尚未完成人脸登记，请先采集并等待服务器确认。
+        </p>
+      ) : null}
       <section className="space-y-5">
         <div className="space-y-2 border-y py-4 text-sm leading-6 text-muted-foreground">
           <p>
@@ -120,8 +152,8 @@ export function EnrollPage() {
           <video
             ref={media.videoRef}
             className={
-              busy
-                ? "aspect-video w-full rounded-lg bg-muted object-cover"
+              step === "camera" || step === "aligning" || step === "frames"
+                ? "mx-auto aspect-[9/16] w-full max-w-72 rounded-lg bg-black object-cover object-center"
                 : "hidden"
             }
             autoPlay
@@ -129,35 +161,33 @@ export function EnrollPage() {
             playsInline
             aria-label="前置相机预览"
           />
-          {media.facingMode && (
-            <p role="status" className="text-sm text-muted-foreground">
-              前置相机已就绪，照片只保留在本页内存中。
-            </p>
-          )}
-          {step === "frames" && (
-            <p role="status" className="text-sm text-muted-foreground">
-              正在采集第 {frameCount + 1} / 3 张照片。
-            </p>
+          {(step === "aligning" || step === "frames") && (
+            <FaceCaptureStatus
+              aligning={face.aligning}
+              countdown={face.countdown}
+              frames={face.frames}
+              onConfirm={face.confirm}
+            />
           )}
           {step === "submitting" && (
-            <p role="status" className="text-sm text-muted-foreground">
-              正在提交登记，请勿关闭页面。
+            <p role="status" className="rounded-lg border p-4 text-sm font-medium">
+              3 张照片已采集完成，正在等待服务器验证。此时尚未登记成功，请勿关闭页面。
             </p>
           )}
           {error && <ErrorState error={error} />}
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {step !== "enrolled" && (
+          {!enrolled && enrollmentQuery.isSuccess && (
             <Button
               className="min-h-11 flex-1"
-              disabled={busy || operationRef.current}
+              disabled={busy || !canStart}
               onClick={startEnrollment}
             >
-              {busy ? "正在采集…" : error ? "重新开始" : "开始登记"}
+              {step === "submitting" ? "正在验证…" : busy ? "采集中，请按提示操作" : error ? "重新开始" : "开始登记"}
             </Button>
           )}
-          {(step === "camera" || step === "frames") && (
+          {(step === "camera" || step === "aligning" || step === "frames") && (
             <Button
               variant="outline"
               className="min-h-11"
@@ -168,10 +198,13 @@ export function EnrollPage() {
           )}
         </div>
 
-        {step === "enrolled" && (
-          <div className="space-y-3">
-            <p role="status" className="border-y py-4 font-medium">
-              服务器已确认人脸登记成功。
+        {enrolled && (
+          <div className="space-y-3 rounded-lg border p-4">
+            <p role="status" className="font-medium">
+              {step === "enrolled" ? "人脸登记成功，服务器已确认保存。" : "已完成人脸登记。"}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              登记已完成，无需再次采集。你可以返回继续使用考勤。
             </p>
             {returnPath && (
               <Button
@@ -180,6 +213,15 @@ export function EnrollPage() {
                 onClick={() => navigate(returnPath, { replace: true })}
               >
                 返回继续签到
+              </Button>
+            )}
+            {!returnPath && (
+              <Button
+                variant="outline"
+                className="min-h-11 w-full"
+                onClick={() => navigate("/student/account", { replace: true })}
+              >
+                完成，返回我的
               </Button>
             )}
           </div>

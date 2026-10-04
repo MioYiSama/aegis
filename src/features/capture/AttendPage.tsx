@@ -37,13 +37,14 @@ import {
 } from "@/features/reviews/attempt-storage"
 import { scanChromaFrame } from "@/wasm/client"
 import {
-  captureFaceFrames,
   delay,
   imageDataToPng,
   readVideoFrame,
   validateUploadSize,
 } from "./media"
 import { useCaptureSession } from "./useCaptureSession"
+import { useFaceCapture } from "./useFaceCapture"
+import { FaceCaptureStatus } from "./FaceCaptureStatus"
 
 type CaptureWindow = "regular" | "late"
 type CapturePhase =
@@ -66,6 +67,7 @@ export function AttendPage() {
   const user = useMe()
   const queryClient = useQueryClient()
   const media = useCaptureSession()
+  const face = useFaceCapture()
   const detailQuery = useCoursesGetLesson(lessonId ?? "", {
     query: {
       enabled: Boolean(lessonId) && user.role === "student",
@@ -81,7 +83,6 @@ export function AttendPage() {
     },
   })
   const [phase, setPhase] = useState<CapturePhase>("idle")
-  const [faceFrames, setFaceFrames] = useState(0)
   const [skipFace, setSkipFace] = useState(false)
   const [skipLocation, setSkipLocation] = useState(false)
   const [skipQr, setSkipQr] = useState(false)
@@ -141,7 +142,11 @@ export function AttendPage() {
   const captureButtonLabel =
     CAPTURE_PHASE_LABELS[phase] ??
     (phase === "face"
-      ? `正在采集人脸照片 ${faceFrames}/3…`
+      ? face.aligning
+        ? "请对准镜头，准备好后开始拍摄"
+        : face.countdown > 0
+          ? `${face.countdown} 秒后开始拍摄…`
+          : `正在采集人脸照片 ${face.frames}/3…`
       : currentWindow
         ? "开始采集"
         : "当前不可提交")
@@ -184,7 +189,7 @@ export function AttendPage() {
       setChallengeExpiresAt(null)
       media.stopSession()
       setPhase("idle")
-      setFaceFrames(0)
+      face.reset()
       setSkipFace(false)
       setSkipLocation(false)
       setSkipQr(false)
@@ -209,7 +214,7 @@ export function AttendPage() {
     setChallengeExpiresAt(null)
     media.stopSession()
     setPhase("idle")
-    setFaceFrames(0)
+    face.reset()
     setError(
       new Error(
         "本次人脸挑战已过期，已停止采集。请手动重新开始以获取新的挑战。",
@@ -259,7 +264,7 @@ export function AttendPage() {
     operationRef.current = false
     setChallengeExpiresAt(null)
     setPhase("idle")
-    setFaceFrames(0)
+    face.reset()
     setAttempt(null)
     setStorageWarning(false)
     setError(null)
@@ -283,7 +288,7 @@ export function AttendPage() {
     setError(null)
     setAttempt(null)
     setStorageWarning(false)
-    setFaceFrames(0)
+    face.reset()
     setChallengeExpiresAt(null)
     setPhase("preparing")
     const controller = media.beginSession()
@@ -311,7 +316,11 @@ export function AttendPage() {
         fresh.stage.kind === "check_in" &&
         !(omitFactors && skipQr)
       if (shouldCaptureLocation) media.startLocation()
-      if (shouldCaptureFace) await media.startCamera("user", signal)
+      if (shouldCaptureFace) {
+        await media.startCamera("user", signal)
+        setPhase("face")
+        await face.prepare(signal)
+      }
       const challenge = await attendanceIssueFaceChallenge(
         { purpose: "attendance", stage_id: fresh.stage.id },
         { signal },
@@ -324,11 +333,7 @@ export function AttendPage() {
       let frames: [Blob, Blob, Blob] | null = null
       if (shouldCaptureFace) {
         setPhase("face")
-        frames = await captureFaceFrames(
-          media.videoRef.current!,
-          signal,
-          setFaceFrames,
-        )
+        frames = await face.capture(media.videoRef.current!, signal)
         media.stopCamera()
       }
 
@@ -553,10 +558,10 @@ export function AttendPage() {
               : "hidden"
           }
         >
-          <div className="relative overflow-hidden rounded-lg bg-black">
+          <div className="relative mx-auto w-full max-w-72 overflow-hidden rounded-lg bg-black">
             <video
               ref={media.videoRef}
-              className="aspect-video w-full object-cover"
+              className="aspect-[9/16] w-full object-cover object-center"
               autoPlay
               muted
               playsInline
@@ -567,15 +572,25 @@ export function AttendPage() {
               }
             />
           </div>
+          {phase === "face" && (
+            <FaceCaptureStatus
+              aligning={face.aligning}
+              countdown={face.countdown}
+              frames={face.frames}
+              onConfirm={face.confirm}
+            />
+          )}
           {media.facingMode === "environment" && (
             <p role="status" className="text-sm text-muted-foreground">
               正在扫描二维码；识别到载波后会立即提交当前帧，不会增加确认步骤。
             </p>
           )}
         </div>
-        {faceFrames > 0 && (
-          <p role="status" className="text-sm text-muted-foreground">
-            已采集人脸照片 {faceFrames}/3
+        {face.frames > 0 && (
+          <p role="status" className="text-sm font-medium">
+            {face.frames === 3
+              ? "人脸照片已采集完成（3/3）。是否验证通过以服务器考勤结果为准。"
+              : `已采集人脸照片 ${face.frames}/3`}
           </p>
         )}
         {skipFace && (

@@ -34,13 +34,26 @@ function captureCanvas(video: HTMLVideoElement) {
   if (sourceWidth < 1 || sourceHeight < 1)
     throw new Error("相机尚未提供可用画面，请重试")
 
-  const scale = Math.min(1, MAX_EDGE / sourceWidth, MAX_EDGE / sourceHeight)
+  // Match the centered 9:16 object-cover preview, including landscape sources.
+  const cropWidth = Math.min(sourceWidth, sourceHeight * 9 / 16)
+  const cropHeight = cropWidth * 16 / 9
+  const scale = Math.min(1, MAX_EDGE / cropWidth, MAX_EDGE / cropHeight)
   const canvas = document.createElement("canvas")
-  canvas.width = Math.max(1, Math.round(sourceWidth * scale))
-  canvas.height = Math.max(1, Math.round(sourceHeight * scale))
+  canvas.width = Math.max(1, Math.round(cropWidth * scale))
+  canvas.height = Math.max(1, Math.round(cropHeight * scale))
   const context = canvas.getContext("2d")
   if (!context) throw new Error("无法读取相机画面")
-  context.drawImage(video, 0, 0, canvas.width, canvas.height)
+  context.drawImage(
+    video,
+    (sourceWidth - cropWidth) / 2,
+    (sourceHeight - cropHeight) / 2,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  )
   return canvas
 }
 export function readVideoFrame(video: HTMLVideoElement): ImageData {
@@ -84,10 +97,17 @@ export async function captureFaceFrames(
   video: HTMLVideoElement,
   signal: AbortSignal,
   onFrame: (count: number) => void,
+  onCountdown: (seconds: number) => void,
 ): Promise<[Blob, Blob, Blob]> {
+  for (let seconds = 3; seconds > 0; seconds -= 1) {
+    ensureActive(signal)
+    onCountdown(seconds)
+    await delay(1000, signal)
+  }
+  onCountdown(0)
   const frames: Blob[] = []
   for (let index = 0; index < 3; index += 1) {
-    if (index > 0) await delay(500, signal)
+    if (index > 0) await delay(1500, signal)
     frames.push(await captureJpeg(video, signal))
     onFrame(frames.length)
   }

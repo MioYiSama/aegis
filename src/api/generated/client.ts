@@ -1307,6 +1307,101 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getAttendanceIssueFaceChallengeMutationOptions(options), queryClient);
     }
 
+export const getAttendanceGetFaceEnrollmentUrl = () => {
+
+
+
+
+  return `/api/face/enroll`
+}
+
+export const attendanceGetFaceEnrollment = async ( options?: Parameters<typeof apiRequest>[1]): Promise<FaceEnrollmentReceipt> => {
+
+  return apiRequest<FaceEnrollmentReceipt>(getAttendanceGetFaceEnrollmentUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getAttendanceGetFaceEnrollmentQueryKey = () => {
+    return [
+    `/api/face/enroll`
+    ] as const;
+    }
+
+
+export const getAttendanceGetFaceEnrollmentQueryOptions = <TData = Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError = ApiError>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData>>, request?: SecondParameter<typeof apiRequest>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getAttendanceGetFaceEnrollmentQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>> = ({ signal }) => attendanceGetFaceEnrollment({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type AttendanceGetFaceEnrollmentQueryResult = NonNullable<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>>
+export type AttendanceGetFaceEnrollmentQueryError = ApiError
+
+
+export function useAttendanceGetFaceEnrollment<TData = Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError = ApiError>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>,
+          TError,
+          Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiRequest>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAttendanceGetFaceEnrollment<TData = Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError = ApiError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>,
+          TError,
+          Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiRequest>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useAttendanceGetFaceEnrollment<TData = Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError = ApiError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData>>, request?: SecondParameter<typeof apiRequest>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useAttendanceGetFaceEnrollment<TData = Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError = ApiError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof attendanceGetFaceEnrollment>>, TError, TData>>, request?: SecondParameter<typeof apiRequest>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getAttendanceGetFaceEnrollmentQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getAttendanceEnrollFaceUrl = () => {
 
 

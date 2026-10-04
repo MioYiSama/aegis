@@ -103,8 +103,9 @@ export function useCaptureSession() {
           audio: false,
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 1280, max: 1920 },
-            height: { ideal: 720, max: 1920 },
+            width: { ideal: 720, max: 1920 },
+            height: { ideal: 1280, max: 1920 },
+            aspectRatio: { ideal: 9 / 16 },
           },
         })
       } catch (error) {

@@ -66,6 +66,7 @@ impl Modify for SessionCookieSecurity {
         crate::stages::close_lesson,
         crate::stages::get_stage_qr,
         crate::attendance::issue_face_challenge,
+        crate::attendance::get_face_enrollment,
         crate::attendance::enroll_face,
         crate::attendance::submit_attempt,
         crate::reviews::create_attempt_review,

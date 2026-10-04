@@ -1258,6 +1258,49 @@
       }
     },
     "/api/face/enroll": {
+      "get": {
+        "tags": [
+          "attendance"
+        ],
+        "operationId": "attendance_get_face_enrollment",
+        "responses": {
+          "200": {
+            "description": "Whether the authenticated student has a persisted face template",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceEnrollmentReceipt"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Student role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
       "post": {
         "tags": [
           "attendance"

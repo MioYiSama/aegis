@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use aegis_core::face::{FaceError, FaceTemplate, MODEL_ID};
 use axum::{
     Extension, Json as ResponseJson, Router, extract::DefaultBodyLimit, http::StatusCode,
-    middleware, routing::post,
+    middleware, routing::{get, post},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,10 @@ pub struct AttendanceState {
 pub fn router(pool: SqlitePool, config: Arc<Config>, workers: FaceWorkers) -> Router {
     Router::new()
         .route("/api/face/challenges", post(issue_face_challenge))
-        .route("/api/face/enroll", post(enroll_face))
+        .route(
+            "/api/face/enroll",
+            get(get_face_enrollment).post(enroll_face),
+        )
         .route("/api/stages/{id}/attempts", post(submit_attempt))
         .layer(DefaultBodyLimit::max(media::MULTIPART_LIMIT))
         .layer(Extension(AttendanceState {
@@ -243,6 +246,35 @@ pub(crate) async fn issue_face_challenge(
             expires_at: time(expires_at)?,
         }),
     ))
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/face/enroll",
+    operation_id = "attendance_get_face_enrollment",
+    responses(
+        (status = 200, description = "Whether the authenticated student has a persisted face template", body = FaceEnrollmentReceipt),
+        (status = 401, description = "Authentication required", body = ApiError),
+        (status = 403, description = "Student role required", body = ApiError)
+    ),
+    security(("session" = [])),
+    tag = "attendance"
+)]
+pub(crate) async fn get_face_enrollment(
+    Extension(state): Extension<AuthState>,
+    user: CurrentUser,
+) -> ApiResult<ResponseJson<FaceEnrollmentReceipt>> {
+    user.student()?;
+    let enrolled = sqlx::query_scalar::<_, i64>(
+        "SELECT EXISTS(SELECT 1 FROM face_templates WHERE user_id = ?)",
+    )
+    .bind(user.user.id.to_string())
+    .fetch_one(&state.pool)
+    .await
+    .map_err(ApiError::from)?;
+    Ok(ResponseJson(FaceEnrollmentReceipt {
+        enrolled: enrolled != 0,
+    }))
 }
 
 #[utoipa::path(
@@ -852,4 +884,243 @@ async fn decode_optional_frames(
             None => None,
         },
     ])
+}
+
+#[cfg(test)]
+mod enrollment_status_tests {
+    use std::{net::SocketAddr, path::PathBuf, sync::Arc};
+
+    use axum::{
+        Extension, Router,
+        body::{Body, to_bytes},
+        http::{
+            Method, Request, Response, StatusCode,
+            header::{COOKIE, ORIGIN, SET_COOKIE},
+        },
+        middleware,
+        routing::get,
+    };
+    use serde_json::{Value, json};
+    use sqlx::{
+        SqlitePool,
+        sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    };
+    use tower::ServiceExt;
+
+    use super::get_face_enrollment;
+    use crate::{
+        auth::{self, AuthState, origin_guard},
+        config::Config,
+    };
+
+    const ORIGIN_VALUE: &str = "http://localhost:3000";
+    const PASSWORD: &str = "test-password-123";
+
+    struct TestApp {
+        pool: SqlitePool,
+        config: Arc<Config>,
+        _directory: tempfile::TempDir,
+    }
+
+    impl TestApp {
+        async fn new() -> Self {
+            let directory = tempfile::tempdir().unwrap();
+            let database_path = directory.path().join("attendance-enrollment.sqlite");
+            let options = SqliteConnectOptions::new()
+                .filename(&database_path)
+                .create_if_missing(true)
+                .foreign_keys(true);
+            let pool = SqlitePoolOptions::new()
+                .max_connections(4)
+                .connect_with(options)
+                .await
+                .unwrap();
+            sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+            let config = Arc::new(Config {
+                bind: "127.0.0.1:0".parse::<SocketAddr>().unwrap(),
+                database_url: format!("sqlite://{}", database_path.display()),
+                origin: ORIGIN_VALUE.to_owned(),
+                cookie_secure: false,
+                model_dir: PathBuf::from("models"),
+            });
+            Self {
+                pool,
+                config,
+                _directory: directory,
+            }
+        }
+
+        fn router(&self) -> Router {
+            Router::new()
+                .route("/api/face/enroll", get(get_face_enrollment))
+                .merge(auth::router(self.pool.clone(), self.config.clone()))
+                .layer(Extension(AuthState {
+                    pool: self.pool.clone(),
+                    config: self.config.clone(),
+                }))
+                .layer(middleware::from_fn_with_state(
+                    self.config.clone(),
+                    origin_guard,
+                ))
+        }
+    }
+
+    fn request(
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        cookie: Option<&str>,
+        origin: Option<&str>,
+    ) -> Request<Body> {
+        let has_body = body.is_some();
+        let body = body
+            .map(|value| Body::from(value.to_string()))
+            .unwrap_or_else(Body::empty);
+        let mut builder = Request::builder().method(method).uri(path);
+        let headers = builder.headers_mut().unwrap();
+        if has_body {
+            headers.insert("content-type", "application/json".parse().unwrap());
+        }
+        if let Some(cookie) = cookie {
+            headers.insert(COOKIE, cookie.parse().unwrap());
+        }
+        if let Some(origin) = origin {
+            headers.insert(ORIGIN, origin.parse().unwrap());
+        }
+        builder.body(body).unwrap()
+    }
+
+    async fn send(
+        router: Router,
+        method: Method,
+        path: &str,
+        body: Option<Value>,
+        cookie: Option<&str>,
+        origin: Option<&str>,
+    ) -> Response<Body> {
+        router
+            .oneshot(request(method, path, body, cookie, origin))
+            .await
+            .unwrap()
+    }
+
+    async fn register(app: &TestApp, username: &str, role: &str, student_no: Option<&str>) -> Value {
+        let mut body = json!({
+            "username": username,
+            "password": PASSWORD,
+            "display_name": format!("Display {username}"),
+            "role": role,
+        });
+        if let Some(student_no) = student_no {
+            body["student_no"] = json!(student_no);
+        }
+        let response = send(
+            app.router(),
+            Method::POST,
+            "/api/auth/register",
+            Some(body),
+            None,
+            Some(ORIGIN_VALUE),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        json_body(response).await
+    }
+
+    async fn login(app: &TestApp, username: &str) -> String {
+        let response = send(
+            app.router(),
+            Method::POST,
+            "/api/auth/login",
+            Some(json!({ "username": username, "password": PASSWORD })),
+            None,
+            Some(ORIGIN_VALUE),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        response
+            .headers()
+            .get(SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_owned()
+    }
+
+    async fn json_body(response: Response<Body>) -> Value {
+        let bytes = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    async fn assert_enrolled(app: &TestApp, cookie: &str, expected: bool) {
+        let response = send(
+            app.router(),
+            Method::GET,
+            "/api/face/enroll",
+            None,
+            Some(cookie),
+            None,
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = json_body(response).await;
+        assert_eq!(body, json!({ "enrolled": expected }));
+    }
+
+    #[tokio::test]
+    async fn enrollment_status_is_authenticated_student_scoped_and_database_backed() {
+        let app = TestApp::new().await;
+        let student_one = register(&app, "enrollment.student.one", "student", Some("enroll-001"))
+            .await;
+        register(&app, "enrollment.student.two", "student", Some("enroll-002")).await;
+        register(&app, "enrollment.teacher", "teacher", None).await;
+
+        let student_one_cookie = login(&app, "enrollment.student.one").await;
+        let student_two_cookie = login(&app, "enrollment.student.two").await;
+        let teacher_cookie = login(&app, "enrollment.teacher").await;
+
+        let anonymous = send(
+            app.router(),
+            Method::GET,
+            "/api/face/enroll",
+            None,
+            None,
+            None,
+        )
+        .await;
+        assert_eq!(anonymous.status(), StatusCode::UNAUTHORIZED);
+
+        let teacher = send(
+            app.router(),
+            Method::GET,
+            "/api/face/enroll",
+            None,
+            Some(&teacher_cookie),
+            None,
+        )
+        .await;
+        assert_eq!(teacher.status(), StatusCode::FORBIDDEN);
+
+        assert_enrolled(&app, &student_one_cookie, false).await;
+        assert_enrolled(&app, &student_two_cookie, false).await;
+
+        // This schema-valid row is only a persisted-status fixture, not a face-recognition acceptance test.
+        sqlx::query(
+            "INSERT INTO face_templates (user_id, embedding, model_id, created_at) \
+             VALUES (?, ?, ?, ?)",
+        )
+        .bind(student_one["id"].as_str().unwrap())
+        .bind(vec![0_u8; 512])
+        .bind("test-status-fixture")
+        .bind(chrono::Utc::now().timestamp_millis())
+        .execute(&app.pool)
+        .await
+        .unwrap();
+
+        assert_enrolled(&app, &student_one_cookie, true).await;
+        assert_enrolled(&app, &student_two_cookie, false).await;
+    }
 }

@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react"
 import { useParams, useSearchParams } from "react-router"
 import { useQueryClient, type QueryClient } from "@tanstack/react-query"
 import {
@@ -50,6 +56,7 @@ import {
   stageDisabledReason,
   submissionWindow,
 } from "./window"
+import { TeacherLocationMap } from "./TeacherLocationMap"
 
 const stageKinds: StageKind[] = [
   StageKindValue.check_in,
@@ -149,6 +156,18 @@ export function LessonPage() {
     },
   )
   const createStage = useStagesCreateLessonStage()
+  const createStageResetRef = useRef(createStage.reset)
+  createStageResetRef.current = createStage.reset
+  const handleMapCoordinatesChange = useCallback(
+    (nextLatitude: number, nextLongitude: number) => {
+      setLatitude(String(nextLatitude))
+      setLongitude(String(nextLongitude))
+      setLocationError(null)
+      setValidationError(null)
+      createStageResetRef.current()
+    },
+    [],
+  )
   const closeStage = useStagesCloseStage()
   const closeLesson = useStagesCloseLesson()
 
@@ -593,6 +612,12 @@ export function LessonPage() {
                     </p>
                   )}
                 </div>
+                <TeacherLocationMap
+                  latitude={latitude}
+                  longitude={longitude}
+                  radius={radius}
+                  onCoordinatesChange={handleMapCoordinatesChange}
+                />
                 {selectedStageReason && (
                   <p className="text-sm text-muted-foreground sm:col-span-2">
                     {selectedStageReason}。
