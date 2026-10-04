@@ -5,7 +5,7 @@ edition.workspace = true
 
 [features]
 default = []
-native-face = ["dep:opencv", "dep:sha2"]
+native-face = ["dep:tract-onnx", "dep:sha2"]
 
 [dependencies]
 image.workspace = true
@@ -14,4 +14,4 @@ imageproc = { version = "=0.25.0", default-features = false }
 rqrr = "=0.10.0"
 thiserror = "2"
 sha2 = { workspace = true, optional = true }
-opencv = { version = "=0.101.0", default-features = false, features = ["clang-runtime", "dnn", "imgcodecs", "imgproc", "objdetect"], optional = true }
+tract-onnx = { version = "=0.23.8", default-features = false, optional = true }

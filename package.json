@@ -1,13 +1,10 @@
 {
   "name": "aegis-frontend",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22.22"
-  },
   "scripts": {
-    "dev": "npm run wasm:build && vite",
+    "dev": "npm run wasm:build && vite --host",
     "wasm:build": "wasm-pack build crates/wasm --target web --out-dir ../../src/wasm/generated --out-name aegis_wasm --release",
     "api:sync": "node scripts/sync-openapi.mjs",
     "api:generate": "orval --config orval.config.ts",
@@ -39,6 +36,9 @@
     "typescript": "latest",
     "vite": "latest",
     "wasm-pack": "0.15.0"
+  },
+  "engines": {
+    "node": ">=22.22"
   },
   "allowScripts": {
     "wasm-pack@0.15.0": true,

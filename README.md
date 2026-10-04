@@ -56,12 +56,9 @@
 
 ## 本地后端运行
 
-已实现 `crates/core` 和 `crates/backend`；正常认证和推理完全离线。已验证环境为 macOS arm64、Rust 1.99.0、OpenCV 4.14.0 CPU。后端要求 OpenCV 4.10+ 的 **4.x**；`opencv` crate 会优先探测 `opencv5`，因此即使设置了 `PKG_CONFIG_PATH`，仍须明确指定 `OPENCV_PACKAGE_NAME=opencv4`。
+已实现 `crates/core` 和 `crates/backend`；正常认证和推理完全离线。人脸推理由 Rust `tract-onnx` CPU 后端执行，图像预处理和检测后处理同样使用 Rust，不需要安装 OpenCV、ONNX Runtime 或 libclang 绑定生成工具。tract 自带优化汇编内核，构建仍需平台编译/汇编工具链（macOS 为 Command Line Tools），无需额外安装系统推理库。`aegis-core` 的 `native-face` feature 启用本地人脸推理；默认构建仍只包含可供 WASM 复用的 QR 核心。
 
 ```sh
-brew install opencv@4 pkg-config
-export OPENCV_PACKAGE_NAME=opencv4
-export PKG_CONFIG_PATH="$(brew --prefix opencv@4)/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 sh scripts/fetch-models.sh models
 RUST_LOG=info cargo run -p aegis-backend
 curl --fail http://localhost:3000/readyz
@@ -90,7 +87,7 @@ SQLite 自动建库、迁移并创建父目录，启用 WAL、外键和 5 秒锁
 
 ### 回归命令
 
-保留上面的 OpenCV 环境变量，运行：
+准备模型后运行以下回归命令，无需 OpenCV 环境变量：
 
 ```sh
 cargo test -p aegis-core --test qr_contract
@@ -108,7 +105,7 @@ cargo test --workspace
 
 ### 开发与构建
 
-需要 Node.js ≥22.22、npm、Rust 和 `wasm32-unknown-unknown` target。`wasm-pack` 随开发依赖安装，不需要全局安装。先按上文准备 OpenCV、模型和后端环境，再运行：
+需要 Node.js ≥22.22、npm、Rust 和 `wasm32-unknown-unknown` target。`wasm-pack` 随开发依赖安装，不需要全局安装。先按上文准备模型和后端环境，再运行：
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -139,11 +136,11 @@ npm run build
 npm run preview
 ```
 
-`cargo test --workspace` 仍需要上文的 OpenCV 环境。`npm run build` 依次构建 WASM、检查 TypeScript、输出 `dist/`；`node_modules/`、`dist/` 和 `src/wasm/generated/` 不纳入源码。
+`cargo test --workspace` 不依赖系统图像或推理库。`npm run build` 依次构建 WASM、检查 TypeScript、输出 `dist/`；`node_modules/`、`dist/` 和 `src/wasm/generated/` 不纳入源码。
 
 ### WASM、媒体与会话边界
 
-`crates/wasm` 直接复用纯 Rust QR 核心，导出 `encode_chroma_png` 和 `decode_chroma_rgba`，不启用 OpenCV。编码仅接受 1–42 字符 ASCII；解码要求宽高各为 1–1920、RGBA 长度精确匹配，不可读图像返回 `undefined`。扫码在按需创建的 module worker 中运行，同一时刻只解一帧；识别后上传同一帧的无损 PNG，不上传解出的 token，不重绘教师返回的载波。
+`crates/wasm` 直接复用纯 Rust QR 核心，导出 `encode_chroma_png` 和 `decode_chroma_rgba`，不启用 `native-face`，也不引入人脸模型推理依赖。编码仅接受 1–42 字符 ASCII；解码要求宽高各为 1–1920、RGBA 长度精确匹配，不可读图像返回 `undefined`。扫码在按需创建的 module worker 中运行，同一时刻只解一帧；识别后上传同一帧的无损 PNG，不上传解出的 token，不重绘教师返回的载波。
 
 相机、定位仅在用户开始采集后启用；人脸三帧、扫码图和挑战只用于当前操作，不写入浏览器存储。取消、离页、退出和受保护请求的 401 会停止媒体及 worker，并清理账号缓存。提交不自动重试；二维码、人脸挑战过期、窗口关闭或 `503` 都不能降级为通过，重新开始会获取新挑战。
 
@@ -176,7 +173,9 @@ npm run preview
 
 ### 人脸
 
-本地人脸核心在 OpenCV 4.14.0 CPU 上实际加载四个固定模型并执行 forward。公开 T1 样本重复三次登记及本人验证通过（真人平均概率 0.99987447）；F1/F2 均被活体策略拒绝，白图和双人拼图均返回 `NotSingleFace`。T1/F1 的 SFace cosine 为 0.19191870，低于 0.363。样本遵守 JPEG EXIF 朝向；这些检查证明本地推理与策略集成，不证明新鲜摄像头输入或两个不同自然人的误识别率。
+本地人脸核心已迁移至 `tract-onnx 0.23.8`，在 macOS arm64、Rust 1.99.0 上实际加载四个固定模型并执行 CPU forward。模型文件、`MODEL_ID`、128 维归一化模板以及 cosine 0.363 / 活体 0.90 阈值不变。YuNet 按原图尺寸补零到 32 的倍数，使用 BGR 原值输入并执行检测解码/NMS；SFace 使用五点相似变换对齐后的 RGB 原值；双 MiniFASNet 使用原有尺度及边界平移的 BGR 裁剪。模型不做重写或重新下载，导入时从算子和实际输入重新推导形状，避免 YuNet 的固定导出注释限制原图尺寸；每个网络复用推理状态，检测器只保留最近一个尺寸的执行计划。
+
+迁移烟测中，公开 T1 样本重复三次登记、本人验证及 OpenCV 参考模板验证均通过；同一 T1 的 Rust / OpenCV 5.0.0 参考特征 cosine 为 0.99973894，非逐位相同。F1/F2 均返回 `Spoof`，白图、非 32 倍数尺寸的白图及双人拼图均返回 `NotSingleFace`。裁剪边界浮点残差在整数截断后校验，与原有裁剪规则一致；NMS、对齐和裁剪边界有独立回归测试。样本遵守 JPEG EXIF 朝向；这些检查证明本地推理与策略集成，不证明新鲜摄像头输入、所有历史模板的兼容性或两个不同自然人的误识别率。
 
 真实 HTTP 集成的多个隔离测试账号使用同一公开 T1 回归输入，**不是不同自然人或实时活体验收**。尚无两名同意者各至少三张独立照片，未验证这项物理边界。合法极小图片（1×1、1×80、80×1、2×2、31×31）已确认是 `face=false / face_not_single`，不是 `503 factor_unavailable`；二维码及定位通过时仍可显式申请部分审核，登记此类图片返回 422。
 
@@ -186,4 +185,4 @@ npm run preview
 
 正常签到三因素全通过自动成功，恰好两因素通过仅获得申请资格；只有显式提交申请后才进入人工审核。续签和签退只需定位、人脸，均不开放部分审核例外。签到窗口关闭后的迟到候选截止于课次预定开始时间 +15 分钟，仍须教师批准。汇总要求所有实际发起的阶段成功；批准请假覆盖最终结果，但不删除阶段证据。真实 HTTP 已验证登记、三因素签到、部分审核、续签、签退、迟到、请假及附件越权；自然结束时的在途提交被拒绝，SQLite 写锁等待后返回 `503 busy`。
 
-`cargo test --workspace` 已通过 20 个回归用例。重启真实服务后，既有 cookie、课程、审核与最终汇总均保留；新构建的服务再次完成真实 T1 登记、三因素签到、无二维码续签/签退及 `present/true` 汇总。HTTP 还核验了未知/重复字段、非法 MIME/图像尺寸、单图/文本/附件大小、跨学生 nonce、迟到及续签禁传二维码、分页边界；合法 2.7 MiB multipart 不受 Axum 默认 2 MiB 上限误伤。
+迁移后 `cargo test --workspace` 已通过 25 个回归用例；独立默认 feature 的核心 QR 回归及 WASM target 构建检查也通过。真实后端加载两个 Rust 人脸实例后 `/readyz` 返回 200；缺模型时以 `Models` 错误退出。此前的完整 HTTP 验收确认：重启后既有 cookie、课程、审核与最终汇总保留，T1 登记、三因素签到、无二维码续签/签退及 `present/true` 汇总通过；未知/重复字段、非法 MIME/图像尺寸、单图/文本/附件大小、跨学生 nonce、迟到及续签禁传二维码、分页边界均按契约处理；合法 2.7 MiB multipart 不受 Axum 默认 2 MiB 上限误伤。
